@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from diffusiongemma_agent import __version__
 from diffusiongemma_agent import cli
+from scripts.rag_code_agent import build_context
 
 
 class PackageCliTests(unittest.TestCase):
@@ -55,6 +56,18 @@ class PackageCliTests(unittest.TestCase):
         self.assertEqual(cli.infer_task_mode("describe this repository"), "read")
         self.assertEqual(cli.infer_task_mode("исправь ошибку в parser.py"), "edit")
         self.assertEqual(cli.infer_task_mode("fix parser.py"), "edit")
+
+    def test_overview_retrieval_prefers_readme_and_ignores_temporary_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "README.md").write_text("# Project overview\nThe main application lives in app.py.\n", encoding="utf-8")
+            (root / "tmp").mkdir()
+            (root / "tmp" / "irrelevant.md").write_text("temporary notes", encoding="utf-8")
+
+            context = build_context(root, "опиши, что в этом репо", 2000, 3)
+
+            self.assertIn("README.md", context)
+            self.assertNotIn("irrelevant.md", context)
 
     def test_read_task_does_not_require_git(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

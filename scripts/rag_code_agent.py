@@ -31,12 +31,19 @@ EXCLUDE_DIRS = {
     ".next",
     ".nuxt",
     ".cache",
+    ".codex_tmp",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
     ".tools",
     ".wheelhouse",
     "__pycache__",
     "models",
     "mnt",
     "runlogs",
+    "scratch",
+    "temp",
+    "tmp",
     "target",
     "out",
     "coverage",
@@ -362,8 +369,18 @@ def build_context(repo: Path, task: str, max_context_chars: int, max_files: int,
     if overview:
         preferred_names = {"readme.md", "readme.rst", "pyproject.toml", "package.json", "cargo.toml", "main.py", "index.py"}
         text_suffixes = {".md", ".rst", ".txt", ".py", ".js", ".ts", ".json", ".toml", ".yaml", ".yml", ".tex"}
-        preferred = [item for item in scores.items() if item[0].name.lower() in preferred_names]
-        top_level = [item for item in scores.items() if item[0].parent == Path(".") and item[0].suffix.lower() in text_suffixes]
+        # Overview requests need representative files even when their names do not
+        # match the user's short question and therefore have no lexical score.
+        preferred = [
+            (rel, scores[rel])
+            for rel in sorted(files, key=lambda path: (len(path.parts), path.as_posix().lower()))
+            if rel.name.lower() in preferred_names
+        ]
+        top_level = [
+            (rel, scores[rel])
+            for rel in sorted(files, key=lambda path: path.as_posix().lower())
+            if rel.parent == Path(".") and rel.suffix.lower() in text_suffixes
+        ]
         ordered: list[tuple[Path, Any]] = []
         for item in preferred + top_level + ranked:
             if item[0] not in {path for path, _ in ordered}:
