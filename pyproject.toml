@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diffusiongemma-agent"
+version = "0.1.1"
+description = "Installer and CLI for the local DiffusionGemma coding agent runtime"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [{name = "DiffusionGemma Agent contributors"}]
+keywords = ["diffusiongemma", "gguf", "coding-agent", "wsl", "cuda"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Operating System :: Microsoft :: Windows :: Windows 10",
+  "Operating System :: Microsoft :: Windows :: Windows 11",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Code Generators",
+]
+dependencies = [
+  "huggingface-hub>=1.0,<2",
+]
+
+[project.urls]
+Source = "https://github.com/aogavrilov/diffusiongemma-agent"
+Issues = "https://github.com/aogavrilov/diffusiongemma-agent/issues"
+Documentation = "https://github.com/aogavrilov/diffusiongemma-agent#readme"
+Backend-Source = "https://github.com/aogavrilov/diffusiongemma-llama-cpp-diffusion"
+Runtime = "https://huggingface.co/aogavrilov/diffusiongemma-agent-iq3-cuda13"
+
+[project.scripts]
+dg-agent = "diffusiongemma_agent.cli:main"
+
+[project.optional-dependencies]
+publish = ["build>=1.2", "twine>=6"]
+test = ["pytest>=8"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+script-files = ["bin/dg-agent.cmd"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

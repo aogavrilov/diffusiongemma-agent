@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+entrypoint=""
+args=()
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    -p|--python|--from)
+      shift 2
+      ;;
+    --)
+      shift
+      args+=("$@")
+      break
+      ;;
+    -*)
+      shift
+      ;;
+    *)
+      entrypoint="$1"
+      shift
+      args+=("$@")
+      break
+      ;;
+  esac
+done
+
+case "$entrypoint" in
+  pyright-langserver)
+    exec "$DG_ROOT/.tools/pyright/node_modules/.bin/pyright-langserver" "${args[@]}"
+    ;;
+  *)
+    echo "Unsupported local uvx entrypoint: ${entrypoint:-<empty>}" >&2
+    exit 2
+    ;;
+esac

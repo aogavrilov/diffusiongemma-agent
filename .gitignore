@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# Local environments and tool downloads
+.venv*/
+.tools/
+.wheelhouse/
+.serena/
+.agents/
+.codex/
+configs/opencode-runtime/node_modules/
+configs/opencode-runtime/tools/
+
+# Models, native runtime binaries, and archives
+*.gguf
+*.so
+*.so.*
+*.dll
+*.tar
+*.zip
+diffusiongemma-agent-portable/
+snapshots/
+mnt/
+
+# Runtime state, logs, probes, and benchmark output
+runlogs/
+*.log
+*.out
+*.err
+*_pid.txt
+*.pid
+dg_*_response.json
+dg_graph_*.json
+iq3-fullgpu-samples*.csv
+mem-samples.csv
+runtime_check.*
+build_single.*
+build_watch.*
+bench-results/
+archives/
+
+# Downloaded reference pages
+unsloth_diffusiongemma_page.*
+
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Generated root launchers; canonical portable sources live under portable/
+/Install-DiffusionGemmaAgent.ps1
+/dg.ps1
+/start-runtime.sh

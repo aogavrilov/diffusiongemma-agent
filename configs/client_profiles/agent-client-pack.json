@@ -1,0 +1,1001 @@
+{
+  "name": "DiffusionGemma local agent client pack",
+  "manifest_file": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\agent-client-pack.json",
+  "recommended_entrypoint": {
+    "command": "scripts/dg_agent.sh agent --repo /repo --task \"...\" --mode auto",
+    "why": "Auto-routes read-only inspection through OpenAI tool-loop repo tools and edits through bounded Aider-compatible sessions with verification, rollback, and artifacts."
+  },
+  "limits": {
+    "max_input_tokens": 768,
+    "max_output_tokens": 256,
+    "recommended_task_shape": "file-level or small multi-file tasks with explicit --file hints",
+    "generic_chat": "safe compatibility mode by default; use agent/session/task for real edits"
+  },
+  "endpoints": {
+    "litellm": {
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local",
+      "use_for": "OpenAI-compatible IDE clients, OpenAI SDK, optional external agent shells"
+    },
+    "aider_proxy": {
+      "base_url": "http://127.0.0.1:8090/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+      "use_for": "Aider, OpenCode, Goose local wrappers"
+    }
+  },
+  "profiles": {
+    "local_agent": {
+      "status": "highest-level local CLI facade",
+      "route": "Use this first for local tasks. --mode auto picks read-only OpenAI tool-loop for inspection tasks and artifacted session for edits.",
+      "command": "scripts/dg_agent.sh agent --repo /repo --task \"...\" --mode auto",
+      "read_command": "scripts/dg_agent.sh agent --repo /repo --task \"...\" --mode read",
+      "edit_command": "scripts/dg_agent.sh agent --repo /repo --task \"...\" --mode edit --file path",
+      "modes": [
+        "auto",
+        "read",
+        "edit"
+      ],
+      "read_route": "openai_tool_loop_read_only",
+      "edit_route": "session",
+      "artifacts": [
+        "runlogs/dg-agent-runs/*/agent.json",
+        "runlogs/dg-agent-runs/*/tool-loop.json",
+        "runlogs/dg-agent-sessions/*/session.json"
+      ],
+      "artifact_commands": {
+        "list_runs": "scripts/dg_agent.sh agent-runs list",
+        "show_latest_run": "scripts/dg_agent.sh agent-runs show --latest",
+        "latest_transcript": "scripts/dg_agent.sh agent-runs artifact transcript --latest"
+      }
+    },
+    "openai_sdk": {
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local",
+      "env_file": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\openai.env"
+    },
+    "openai_tool_loop": {
+      "status": "reference OpenAI-compatible tool loop",
+      "route": "Fetch DG tool schemas from the gateway, call Chat Completions through LiteLLM, execute tool_calls through /v1/agent/tool, append role=tool results, summarize them, and preserve a transcript.",
+      "command": "scripts/dg_agent.sh tool-loop --repo /repo --task \"...\" --out runlogs/tool-loop/latest.json",
+      "script": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\scripts\\dg_openai_tool_loop.py",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "model": "diffusiongemma-local",
+      "tool_manifest_url": "http://127.0.0.1:8090/v1/agent/tool_manifest",
+      "tool_runtime_url": "http://127.0.0.1:8090/v1/agent/tool",
+      "tools": [
+        "execute_command",
+        "dg_repo_status",
+        "dg_git_diff",
+        "dg_list_files",
+        "dg_read_file",
+        "dg_search",
+        "dg_repo_pack",
+        "dg_repo_map",
+        "dg_ast_grep",
+        "dg_code_outline",
+        "dg_agent",
+        "dg_session",
+        "dg_context",
+        "dg_rag_context",
+        "dg_session_artifact",
+        "dg_agent_run_artifact"
+      ],
+      "flags": [
+        "--tool NAME",
+        "--exclude-tool NAME",
+        "--read-only",
+        "--stop-after-tool"
+      ]
+    },
+    "agent_gateway": {
+      "status": "OpenAI-compatible safe agent gateway",
+      "route": "Use the local safe proxy for Chat Completions, Responses API, tool-call delegation, and wrapper discovery.",
+      "base_url": "http://127.0.0.1:8090/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+      "discovery": {
+        "health": "http://127.0.0.1:8090/healthz",
+        "models": "http://127.0.0.1:8090/v1/models",
+        "model_card": "http://127.0.0.1:8090/v1/model_card",
+        "capabilities": "http://127.0.0.1:8090/v1/capabilities",
+        "routes": "http://127.0.0.1:8090/v1/agent/routes",
+        "session_api": "http://127.0.0.1:8090/v1/agent/session",
+        "tool_runtime": "http://127.0.0.1:8090/v1/agent/tool",
+        "context": "http://127.0.0.1:8090/v1/agent/context",
+        "rag_context": "http://127.0.0.1:8090/v1/agent/rag",
+        "sessions": "http://127.0.0.1:8090/v1/agent/sessions",
+        "latest_session": "http://127.0.0.1:8090/v1/agent/sessions/latest",
+        "latest_session_diff": "http://127.0.0.1:8090/v1/agent/sessions/latest/diff",
+        "tool_manifest": "http://127.0.0.1:8090/v1/agent/tool_manifest",
+        "actions": "http://127.0.0.1:8090/v1/agent/actions",
+        "agent_runs": "http://127.0.0.1:8090/v1/agent/runs",
+        "latest_agent_run": "http://127.0.0.1:8090/v1/agent/runs/latest",
+        "well_known_agent": "http://127.0.0.1:8090/.well-known/agent.json",
+        "openapi": "http://127.0.0.1:8090/openapi.json"
+      },
+      "supports": [
+        "chat_completions",
+        "chat_streaming",
+        "responses",
+        "tool_call_delegation",
+        "http_session_action_api",
+        "http_tool_runtime_api",
+        "http_repo_inspection_tools",
+        "http_session_artifact_api",
+        "http_agent_run_artifact_api",
+        "http_context_api",
+        "http_rag_context_api",
+        "openai_tool_schema_manifest",
+        "openai_dg_tool_schemas",
+        "well_known_agent_manifest",
+        "mini_swe_command_delegate",
+        "aider_file_listing_adapter"
+      ],
+      "generic_generation": "disabled by default; use session/task wrappers for reliable edits"
+    },
+    "codex_cli": {
+      "status": "project-local Codex CLI profile",
+      "route": "Use Codex CLI with the local safe agent proxy as an OpenAI-compatible chat provider.",
+      "installer": "scripts/dg_agent.sh codex-profile --repo /repo --target all",
+      "workspace_launcher": ".dg-agent/bin/codex-profile --target all",
+      "workspace_files": [
+        ".dg-agent/CODEX.md",
+        ".dg-agent/codex.config.toml",
+        ".dg-agent/codex.env",
+        ".dg-agent/commands/dg-codex.md"
+      ],
+      "project_files": [
+        ".codex/config.toml"
+      ],
+      "base_url": "http://127.0.0.1:8090/v1",
+      "api_key_env": "OPENAI_API_KEY",
+      "api_key_value": "dummy",
+      "model": "diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+      "wire_api": "chat"
+    },
+    "aider": {
+      "command": "scripts/run_aider_local.sh --repo /repo",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\aider.dg-fast.conf.yml",
+      "workspace_config_template": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\aider.dg-workspace.conf.yml",
+      "workspace_config": ".dg-agent/aider.dg-fast.conf.yml",
+      "manual_command": "aider --config .dg-agent/aider.dg-fast.conf.yml path/to/file",
+      "model_settings": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\aider.dg-model-settings.yml",
+      "model_metadata": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\aider.dg-model-metadata.json",
+      "env": {
+        "AIDER_OPENAI_API_BASE": "http://127.0.0.1:8090/v1",
+        "AIDER_OPENAI_API_KEY": "dummy",
+        "DG_AIDER_MODEL": "openai/diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+        "DG_AIDER_EDIT_FORMAT": "whole",
+        "DG_AIDER_MAP_TOKENS": "0",
+        "DG_AIDER_MAX_CHAT_HISTORY_TOKENS": "512"
+      }
+    },
+    "rag": {
+      "status": "read-only retrieval wrapper",
+      "route": "Use rg-based file ranking and snippets to compensate for the small local model context.",
+      "command": "scripts/dg_agent.sh rag --repo /repo --task \"...\" --print-context",
+      "script": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\scripts\\rag_code_agent.py",
+      "mcp_tools": [
+        "dg_rag_context",
+        "dg_rag_answer"
+      ],
+      "recommended_limits": {
+        "max_context_chars": 650,
+        "max_files": 3,
+        "max_tokens": 128
+      }
+    },
+    "repomix": {
+      "status": "optional OSS repository packer",
+      "route": "Use upstream Repomix through local npx to pack repositories for AI clients.",
+      "command": "scripts/dg_agent.sh repo-pack --repo /repo --style markdown --stdout",
+      "upstream": "https://github.com/yamadashy/repomix",
+      "package": "repomix",
+      "native_mcp_command": "scripts/run_repomix_mcp.sh",
+      "mcp_tools": [
+        "dg_repo_pack"
+      ],
+      "recommended_flags": [
+        "--compress",
+        "--include-diffs",
+        "--token-budget"
+      ]
+    },
+    "repo_map": {
+      "status": "optional OSS Aider repository map",
+      "route": "Use upstream Aider's repo-map to give agents a compact symbol-aware repository sketch.",
+      "command": "scripts/dg_agent.sh repo-map --repo /repo --map-tokens 512",
+      "upstream": "https://github.com/Aider-AI/aider",
+      "package": "aider-chat",
+      "native_command": "scripts/run_aider_local.sh --repo /repo --show-repo-map",
+      "mcp_tools": [
+        "dg_repo_map"
+      ],
+      "recommended_flags": [
+        "--map-tokens",
+        "--map-only",
+        "--max-chars"
+      ]
+    },
+    "ast_grep": {
+      "status": "optional OSS structural code search",
+      "route": "Use upstream ast-grep to search code by AST patterns before asking the small-context model.",
+      "command": "scripts/dg_agent.sh ast-grep --repo /repo --lang python --pattern 'return $X' --json",
+      "upstream": "https://github.com/ast-grep/ast-grep",
+      "package": "@ast-grep/cli",
+      "native_command": "scripts/run_ast_grep.sh",
+      "mcp_tools": [
+        "dg_ast_grep"
+      ],
+      "recommended_flags": [
+        "--lang",
+        "--pattern",
+        "--json",
+        "--files-with-matches"
+      ]
+    },
+    "code_outline": {
+      "status": "optional OSS code symbol outline",
+      "route": "Use upstream ast-grep outline to map files, classes, functions, imports, and members before reading code.",
+      "command": "scripts/dg_agent.sh code-outline --repo /repo --lang python --json",
+      "upstream": "https://github.com/ast-grep/ast-grep",
+      "package": "@ast-grep/cli",
+      "native_command": "scripts/run_ast_grep.sh outline",
+      "mcp_tools": [
+        "dg_code_outline"
+      ],
+      "recommended_flags": [
+        "--lang",
+        "--view",
+        "--items",
+        "--json",
+        "--max-items"
+      ]
+    },
+    "serena_mcp": {
+      "status": "optional OSS semantic/LSP MCP server",
+      "route": "Mount upstream Serena alongside DG MCP when a client needs symbol-aware navigation, references, diagnostics, and safe symbol edits.",
+      "command": "scripts/run_serena_mcp.sh",
+      "upstream": "https://github.com/oraios/serena",
+      "package": "serena-agent",
+      "transport": "stdio",
+      "native_command": "scripts/run_serena_mcp.sh",
+      "install_command": "scripts/install_serena_local.sh",
+      "server_name": "serena",
+      "tools": [
+        "get_symbols_overview",
+        "find_symbol",
+        "find_referencing_symbols",
+        "find_implementations",
+        "find_declaration",
+        "get_diagnostics_for_file",
+        "rename_symbol",
+        "safe_delete_symbol",
+        "replace_symbol_body",
+        "insert_before_symbol",
+        "insert_after_symbol",
+        "initial_instructions"
+      ],
+      "recommended_flags": [
+        "--project-from-cwd",
+        "--context claude-code",
+        "--transport streamable-http"
+      ]
+    },
+    "opencode": {
+      "command": "scripts/dg_agent.sh opencode -- /repo",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\opencode.dg.json",
+      "provider": "diffusiongemma-local",
+      "model": "diffusiongemma-local/diffusiongemma-26b-a4b-it-iq4xs-aider-local"
+    },
+    "opencode_agent": {
+      "status": "Primary bounded OpenCode terminal workflow",
+      "route": "Use upstream OpenCode as the terminal UI and route its single Bash call to the verified DG read/session workflow. This avoids native tool selection by the diffusion model.",
+      "command": "scripts/dg_agent.sh opencode-agent -- /repo",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\opencode.dg-agent.json",
+      "provider": "diffusiongemma-local",
+      "model": "diffusiongemma-local/diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+      "tools": [
+        "bash"
+      ],
+      "timeout_env": "OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS=450000",
+      "semantic_navigation": "Use the separate Serena MCP profile or repo-map/code-outline before broad tasks."
+    },
+    "opencode_mcp": {
+      "status": "OpenCode profile with DG MCP and Repomix MCP servers",
+      "route": "Run OpenCode with DG workflow tools and upstream repository packing configured in opencode.dg-mcp.json. Use the separate Serena MCP profile in IDE clients for semantic/LSP tools.",
+      "command": "scripts/dg_agent.sh opencode-mcp -- /repo",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\opencode.dg-mcp.json",
+      "provider": "diffusiongemma-local",
+      "model": "diffusiongemma-local/diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+      "mcp_servers": [
+        "dg_agent",
+        "repomix"
+      ]
+    },
+    "opencode_acp": {
+      "status": "OpenCode ACP server with DG MCP and Repomix MCP servers",
+      "route": "Run OpenCode's upstream ACP server against the local DG provider and MCP tools.",
+      "command": "scripts/dg_agent.sh opencode-acp -- --cwd /repo --hostname 127.0.0.1 --port 3295",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\opencode.dg-mcp.json",
+      "provider": "diffusiongemma-local",
+      "model": "diffusiongemma-local/diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+      "base_profile": "opencode_mcp",
+      "transport": "acp-http",
+      "default_url": "http://127.0.0.1:3295",
+      "mcp_servers": [
+        "dg_agent",
+        "repomix"
+      ]
+    },
+    "goose": {
+      "command": "scripts/dg_agent.sh goose -- run --no-profile --max-turns 1 --text \"...\"",
+      "env": {
+        "GOOSE_PROVIDER": "openai",
+        "GOOSE_MODEL": "diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+        "OPENAI_HOST": "http://127.0.0.1:8090",
+        "OPENAI_API_KEY": "dummy"
+      }
+    },
+    "goose_mcp": {
+      "status": "MCP-capable Goose profile",
+      "route": "Run Goose with DG MCP and Serena semantic/LSP MCP mounted as stdio extensions.",
+      "command": "scripts/dg_agent.sh goose-mcp -- info -v",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\goose-mcp.dg.yaml",
+      "home": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\.tools\\goose-dg-mcp-home",
+      "extension": "dg_agent",
+      "extensions": [
+        "dg_agent",
+        "serena"
+      ],
+      "tools": [
+        "dg_task_note",
+        "dg_task_notes",
+        "dg_repo_status",
+        "dg_list_files",
+        "dg_search",
+        "dg_read_file",
+        "dg_git_diff",
+        "dg_status",
+        "dg_context",
+        "dg_rag_context",
+        "dg_rag_answer",
+        "dg_repo_pack",
+        "dg_repo_map",
+        "dg_ast_grep",
+        "dg_code_outline",
+        "dg_preflight",
+        "dg_plan",
+        "dg_task",
+        "dg_session",
+        "dg_verify",
+        "dg_capabilities",
+        "dg_client_smoke",
+        "dg_client_report"
+      ],
+      "env": {
+        "GOOSE_PROVIDER": "openai",
+        "GOOSE_MODEL": "diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+        "OPENAI_HOST": "http://127.0.0.1:8090",
+        "OPENAI_API_KEY": "dummy"
+      }
+    },
+    "goose_acp": {
+      "status": "ACP stdio agent server",
+      "route": "Run Goose as an ACP agent server on stdio with the DG MCP tools mounted.",
+      "command": "scripts/dg_agent.sh goose-acp",
+      "base_profile": "goose_mcp",
+      "transport": "stdio",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\goose-mcp.dg.yaml"
+    },
+    "goose_serve": {
+      "status": "ACP HTTP/WebSocket agent server",
+      "route": "Run Goose serve with the DG MCP tools mounted.",
+      "command": "scripts/dg_agent.sh goose-serve -- --host 127.0.0.1 --port 3294",
+      "base_profile": "goose_mcp",
+      "transport": "http-websocket",
+      "default_url": "http://127.0.0.1:3294",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\goose-mcp.dg.yaml"
+    },
+    "openhands_acp": {
+      "status": "ACP stdio agent server",
+      "route": "Run OpenHands as an ACP stdio server with the local DG LiteLLM profile.",
+      "command": "scripts/dg_agent.sh openhands-acp",
+      "base_profile": "openhands",
+      "transport": "stdio",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\openhands.dg.toml",
+      "env_file": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\openhands.env",
+      "notes": "Uses `openhands acp --override-with-envs`; do not use the standalone openhands-acp entrypoint."
+    },
+    "openhands_mcp": {
+      "status": "OpenHands MCP tool setup",
+      "route": "Configure OpenHands built-in MCP servers for DG, Repomix, and Serena in repo-local persistence.",
+      "command": "scripts/dg_agent.sh openhands-mcp -- --repo /repo --reset",
+      "workspace_launcher": ".dg-agent/bin/openhands-mcp --reset",
+      "persistence_dir": ".dg-agent/openhands-persistence",
+      "config": ".dg-agent/openhands-persistence/mcp.json",
+      "servers": [
+        "diffusiongemma-local-agent",
+        "repomix",
+        "serena"
+      ],
+      "base_profile": "openhands",
+      "notes": "Uses `openhands mcp add` instead of hand-writing OpenHands config."
+    },
+    "qwen_code": {
+      "status": "optional read-only terminal inspection experiment",
+      "route": "Run Qwen Code CLI against the local GPU gateway; prefer the WSL MCP route, with native Windows safe-proxy fallback.",
+      "command": "scripts/dg_agent.sh qwen-code -- --repo /repo --dry-run",
+      "workspace_launcher": ".dg-agent/bin/qwen-code --dry-run",
+      "runner": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\scripts\\run_qwen_code_local.sh",
+      "native_windows_runner": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\scripts\\run_qwen_code_windows.ps1",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\qwen-code.mcp.json",
+      "workspace_config": ".dg-agent/qwen-code.mcp.json",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "model": "diffusiongemma-local",
+      "native_windows_base_url": "http://127.0.0.1:8090/v1",
+      "native_windows_model": "diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+      "auth_type": "openai",
+      "mode": "read-only inspection; edits stay on Aider/session/task",
+      "mcp_servers": [
+        "diffusiongemma-local-agent",
+        "repomix",
+        "serena"
+      ],
+      "recommended_flags": [
+        "--prompt \"Read path/to/file.py. Summarize ...\""
+      ]
+    },
+    "autogen": {
+      "status": "optional external framework experiment",
+      "route": "Use Microsoft AutoGen AgentChat with the local OpenAI-compatible model client profile.",
+      "command": "scripts/dg_agent.sh autogen -- --repo /repo --dry-run",
+      "workspace_launcher": ".dg-agent/bin/autogen --dry-run",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\autogen.dg.json",
+      "workspace_config": ".dg-agent/autogen.dg.json",
+      "package": "autogen-agentchat + autogen-ext[openai]",
+      "model_client": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local",
+      "model_info": {
+        "vision": false,
+        "function_calling": false,
+        "json_output": false,
+        "family": "unknown",
+        "structured_output": false
+      }
+    },
+    "smolagents": {
+      "status": "optional external framework experiment",
+      "route": "Use Hugging Face smolagents CodeAgent with the local OpenAI-compatible model profile.",
+      "command": "scripts/dg_agent.sh smolagents -- --repo /repo --dry-run",
+      "workspace_launcher": ".dg-agent/bin/smolagents --dry-run",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\smolagents.dg.json",
+      "workspace_config": ".dg-agent/smolagents.dg.json",
+      "package": "smolagents[toolkit] + openai",
+      "agent": "smolagents.CodeAgent",
+      "model_class": "smolagents.OpenAIModel",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local",
+      "max_steps": 2,
+      "notes": "Framework compatibility route; keep reliable edits on agent/session/task."
+    },
+    "langgraph": {
+      "status": "optional external framework experiment",
+      "route": "Use LangGraph/LangChain agent graph with the local OpenAI-compatible model profile.",
+      "command": "scripts/dg_agent.sh langgraph -- --repo /repo --dry-run",
+      "workspace_launcher": ".dg-agent/bin/langgraph --dry-run",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\langgraph.dg.json",
+      "workspace_config": ".dg-agent/langgraph.dg.json",
+      "package": "langgraph + langchain + langchain-openai",
+      "agent_factory": "langchain.agents.create_agent",
+      "fallback_agent_factory": "langgraph.prebuilt.create_react_agent",
+      "model_class": "langchain_openai.ChatOpenAI",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local",
+      "notes": "Framework compatibility route; keep reliable edits on agent/session/task."
+    },
+    "crewai": {
+      "status": "optional external framework experiment",
+      "route": "Use CrewAI Agent/Task/Crew with the local OpenAI-compatible model profile.",
+      "command": "scripts/dg_agent.sh crewai -- --repo /repo --dry-run",
+      "workspace_launcher": ".dg-agent/bin/crewai --dry-run",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\crewai.dg.json",
+      "workspace_config": ".dg-agent/crewai.dg.json",
+      "package": "crewai",
+      "classes": {
+        "agent": "crewai.Agent",
+        "task": "crewai.Task",
+        "crew": "crewai.Crew",
+        "llm": "crewai.LLM"
+      },
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "openai/diffusiongemma-local",
+      "process": "sequential",
+      "notes": "Framework compatibility route; keep reliable edits on agent/session/task."
+    },
+    "open_interpreter": {
+      "status": "optional external shell experiment",
+      "route": "Use Open Interpreter's upstream code-execution shell with the local OpenAI-compatible model profile.",
+      "command": "scripts/dg_agent.sh open-interpreter -- --repo /repo --dry-run",
+      "workspace_launcher": ".dg-agent/bin/open-interpreter --dry-run",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\open-interpreter.dg.json",
+      "workspace_config": ".dg-agent/open-interpreter.dg.json",
+      "package": "open-interpreter",
+      "agent": "interpreter.interpreter",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "openai/diffusiongemma-local",
+      "context_window": 768,
+      "max_tokens": 256,
+      "auto_run": false,
+      "safe_mode": "ask",
+      "notes": "Shell/code-execution compatibility route; keep reliable edits on agent/session/task."
+    },
+    "llamaindex": {
+      "status": "optional external framework experiment",
+      "route": "Use LlamaIndex OpenAILike with AgentWorkflow repo tools over the local OpenAI-compatible model profile.",
+      "command": "scripts/dg_agent.sh llamaindex -- --repo /repo --dry-run",
+      "workspace_launcher": ".dg-agent/bin/llamaindex --dry-run",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\llamaindex.dg.json",
+      "workspace_config": ".dg-agent/llamaindex.dg.json",
+      "package": "llama-index-core + llama-index-llms-openai-like",
+      "llm_class": "llama_index.llms.openai_like.OpenAILike",
+      "agent_workflow_class": "llama_index.core.agent.workflow.AgentWorkflow",
+      "agent_class": "llama_index.core.agent.workflow.ReActAgent",
+      "function_agent_class": "llama_index.core.agent.workflow.FunctionAgent",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local",
+      "context_window": 768,
+      "max_tokens": 256,
+      "is_chat_model": true,
+      "is_function_calling_model": false,
+      "tools": [
+        "list_files",
+        "read_file",
+        "search_repo"
+      ],
+      "notes": "RAG/agent framework compatibility route; keep reliable edits on agent/session/task."
+    },
+    "haystack": {
+      "status": "optional external RAG framework experiment",
+      "route": "Use Haystack InMemoryDocumentStore and BM25 retrieval before calling the local OpenAI-compatible model profile.",
+      "command": "scripts/dg_agent.sh haystack -- --repo /repo --dry-run",
+      "workspace_launcher": ".dg-agent/bin/haystack --dry-run",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\haystack.dg.json",
+      "workspace_config": ".dg-agent/haystack.dg.json",
+      "package": "haystack-ai",
+      "document_store": "haystack.document_stores.in_memory.InMemoryDocumentStore",
+      "retriever": "haystack.components.retrievers.in_memory.InMemoryBM25Retriever",
+      "generator": "haystack.components.generators.chat.OpenAIChatGenerator",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local",
+      "top_k": 4,
+      "max_files": 120,
+      "max_file_chars": 4000,
+      "max_tokens": 256,
+      "notes": "Retrieval-first RAG route for repo Q&A; keep reliable edits on agent/session/task."
+    },
+    "agent_bridge": {
+      "status": "one-shot ACP bridge over OSS agent servers",
+      "route": "Initialize the target repo and expose it through an upstream ACP agent server instead of writing a new agent loop.",
+      "command": "scripts/dg_agent.sh agent-bridge --repo /repo --server opencode-acp",
+      "default_server": "opencode-acp",
+      "servers": {
+        "opencode-acp": {
+          "base_profile": "opencode_acp",
+          "transport": "http",
+          "default_url": "http://127.0.0.1:3295",
+          "command": "scripts/dg_agent.sh opencode-acp -- --cwd /repo --hostname 127.0.0.1 --port 3295"
+        },
+        "goose-serve": {
+          "base_profile": "goose_serve",
+          "transport": "http-websocket",
+          "default_url": "http://127.0.0.1:3294",
+          "command": "scripts/dg_agent.sh goose-serve -- --host 127.0.0.1 --port 3294"
+        },
+        "goose-acp": {
+          "base_profile": "goose_acp",
+          "transport": "stdio",
+          "command": "scripts/dg_agent.sh goose-acp"
+        },
+        "openhands-acp": {
+          "base_profile": "openhands_acp",
+          "transport": "stdio",
+          "command": "scripts/dg_agent.sh openhands-acp"
+        }
+      },
+      "init": "scripts/dg_agent.sh client-init --repo /repo --client cursor",
+      "workspace_launcher": ".dg-agent/bin/agent-bridge --server opencode-acp"
+    },
+    "agent_hub": {
+      "status": "repo-local handoff for humans and external agents",
+      "route": "Open .dg-agent/AGENT_HUB.md or .dg-agent/agent-hub.json to choose the strongest local wrapper for the current task.",
+      "files": [
+        ".dg-agent/AGENT_HUB.md",
+        ".dg-agent/agent-hub.json"
+      ],
+      "launcher": ".dg-agent/bin/hub",
+      "recommended_first_read": ".dg-agent/AGENT_HUB.md"
+    },
+    "client_smoke": {
+      "status": "target-repo readiness smoke for external clients",
+      "route": "Prepare or verify a repo before connecting Cursor, Claude, VS Code, OpenCode ACP, or Goose ACP.",
+      "command": "scripts/dg_agent.sh client-smoke --repo /repo --client cursor",
+      "live_command": "scripts/dg_agent.sh client-smoke --repo /repo --client cursor --live",
+      "checks": [
+        "workspace",
+        "hub",
+        "mcp_client_config",
+        "agent_rules",
+        "launchers",
+        "optional_live_endpoints"
+      ],
+      "workspace_launcher": ".dg-agent/bin/client-smoke --client cursor"
+    },
+    "client_report": {
+      "status": "target-repo handoff report for external clients",
+      "route": "Generate a portable Markdown/JSON handoff after client-init/client-smoke so external agents know which local routes are ready.",
+      "command": "scripts/dg_agent.sh client-report --repo /repo --client cursor",
+      "live_command": "scripts/dg_agent.sh client-report --repo /repo --client cursor --live",
+      "outputs": [
+        ".dg-agent/CLIENT_HANDOFF.md",
+        ".dg-agent/client-handoff.json"
+      ],
+      "workspace_launcher": ".dg-agent/bin/client-report --client cursor"
+    },
+    "continue": {
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\continue.config.yaml",
+      "provider": "openai",
+      "apiBase": "http://127.0.0.1:4100/v1",
+      "apiKey": "dummy",
+      "model": "diffusiongemma-local"
+    },
+    "cline": {
+      "provider": "OpenAI Compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local"
+    },
+    "roo_code": {
+      "provider": "OpenAI Compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local"
+    },
+    "kilo_code": {
+      "provider": "OpenAI Compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local"
+    },
+    "ide_clients": {
+      "status": "copy-ready IDE agent client profiles",
+      "route": "Use existing Continue, Cline, Roo Code, and Kilo Code clients through the local LiteLLM/OpenAI endpoint, with an optional safe proxy route for command-like tool clients.",
+      "workspace_files": [
+        ".dg-agent/IDE_CLIENTS.md",
+        ".dg-agent/ide-client-snippets.json",
+        ".dg-agent/openai-compatible.local.json",
+        ".dg-agent/openai.env",
+        ".dg-agent/continue.config.yaml",
+        ".dg-agent/kilo-code.config.json"
+      ],
+      "clients": [
+        "continue",
+        "cline",
+        "roo_code",
+        "kilo_code"
+      ],
+      "chat_endpoint": {
+        "base_url": "http://127.0.0.1:4100/v1",
+        "model": "diffusiongemma-local",
+        "api_key": "dummy"
+      },
+      "safe_agent_endpoint": {
+        "base_url": "http://127.0.0.1:8090/v1",
+        "model": "diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+        "api_key": "dummy"
+      },
+      "snippets": ".dg-agent/ide-client-snippets.json",
+      "handoff": ".dg-agent/IDE_CLIENTS.md"
+    },
+    "openhands": {
+      "status": "optional external experiment",
+      "route": "Use OpenHands LiteLLM Proxy provider pointed at the local LiteLLM gateway.",
+      "command": "scripts/dg_agent.sh openhands -- --repo /repo --task \"...\"",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\openhands.dg.toml",
+      "env_file": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\openhands.env",
+      "base_url": "http://127.0.0.1:4100",
+      "api_key": "dummy",
+      "model": "litellm_proxy/diffusiongemma-local",
+      "limits": {
+        "max_input_tokens": 768,
+        "max_output_tokens": 256
+      }
+    },
+    "swe_agent": {
+      "status": "optional external experiment",
+      "route": "Use the LiteLLM/OpenAI-compatible model config pointed at the local LiteLLM endpoint.",
+      "command": "scripts/dg_agent.sh swe-agent -- --repo /repo --task \"...\"",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\swe-agent.dg.yaml",
+      "model_registry": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\litellm-local-model-registry.json",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "openai/diffusiongemma-local",
+      "notes": "Classic SWE-agent is maintenance-mode upstream; prefer mini_swe_agent for new experiments."
+    },
+    "mini_swe_agent": {
+      "status": "optional external experiment",
+      "route": "Use mini-swe-agent with LiteLLM/OpenAI-compatible provider and a short step limit.",
+      "command": "scripts/dg_agent.sh mini-swe-agent -- --repo /repo --task \"...\"",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\mini-swe-agent.dg.yaml",
+      "model_registry": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\litellm-local-model-registry.json",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "openai/diffusiongemma-local",
+      "cost_tracking": "ignore_errors"
+    },
+    "mcp": {
+      "status": "official SDK stdio tool server",
+      "route": "Expose reliable DG agent commands as MCP tools for MCP-capable IDEs and OSS agents.",
+      "command": "scripts/dg_agent.sh mcp",
+      "config": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\mcp-server.json",
+      "transport": "stdio",
+      "sdk": "modelcontextprotocol/python-sdk",
+      "legacy_fallback": "scripts/dg_agent.sh mcp --legacy",
+      "tools": [
+        "dg_task_note",
+        "dg_task_notes",
+        "dg_repo_status",
+        "dg_list_files",
+        "dg_search",
+        "dg_read_file",
+        "dg_git_diff",
+        "dg_status",
+        "dg_context",
+        "dg_rag_context",
+        "dg_rag_answer",
+        "dg_repo_pack",
+        "dg_repo_map",
+        "dg_ast_grep",
+        "dg_code_outline",
+        "dg_preflight",
+        "dg_plan",
+        "dg_task",
+        "dg_session",
+        "dg_verify",
+        "dg_capabilities",
+        "dg_sessions",
+        "dg_session_artifact",
+        "dg_agent_runs",
+        "dg_agent_run_artifact",
+        "dg_client_smoke",
+        "dg_client_report"
+      ],
+      "resources": [
+        "dg://client-pack",
+        "dg://status",
+        "dg://usage",
+        "dg://notes",
+        "dg://notes/latest",
+        "dg://sessions",
+        "dg://sessions/latest",
+        "dg://sessions/latest/diff",
+        "dg://agent-runs",
+        "dg://agent-runs/latest",
+        "dg://agent-runs/latest/transcript",
+        "dg://capabilities/latest",
+        "dg://client-handoff",
+        "dg://client-handoff/markdown",
+        "dg://agent-hub",
+        "dg://agent-hub/markdown",
+        "dg://command-kit",
+        "dg://command-kit/markdown",
+        "dg://ide-clients",
+        "dg://ide-clients/markdown",
+        "dg://codex-profile",
+        "dg://codex-profile/config"
+      ],
+      "prompts": [
+        "dg_agent_session",
+        "dg_agent_context",
+        "dg_agent_continue_latest"
+      ]
+    },
+    "mcp_http": {
+      "status": "official SDK streamable HTTP tool server",
+      "route": "Expose the same DG MCP tools over a local HTTP endpoint for MCP clients that cannot spawn stdio servers.",
+      "command": "scripts/dg_agent.sh mcp-http -- --host 127.0.0.1 --port 8765",
+      "url": "http://127.0.0.1:8765/mcp",
+      "transport": "streamable-http",
+      "sdk": "modelcontextprotocol/python-sdk",
+      "base_profile": "mcp",
+      "tools": [
+        "dg_status",
+        "dg_context",
+        "dg_rag_context",
+        "dg_rag_answer",
+        "dg_repo_pack",
+        "dg_repo_map",
+        "dg_ast_grep",
+        "dg_code_outline",
+        "dg_preflight",
+        "dg_plan",
+        "dg_task",
+        "dg_session",
+        "dg_verify",
+        "dg_capabilities",
+        "dg_agent_runs",
+        "dg_agent_run_artifact",
+        "dg_client_smoke",
+        "dg_client_report"
+      ]
+    },
+    "mcp_clients": {
+      "status": "copy-ready MCP client configs",
+      "route": "Mount the DG MCP stdio server in existing MCP-capable clients instead of writing a new agent loop.",
+      "installer": "scripts/dg_agent.sh mcp-client-config --repo /repo --client cursor",
+      "installer_with_repomix": "scripts/dg_agent.sh mcp-client-config --repo /repo --client cursor --with-repomix",
+      "installer_with_serena": "scripts/dg_agent.sh mcp-client-config --repo /repo --client cursor --with-serena",
+      "installer_with_all_optional": "scripts/dg_agent.sh mcp-client-config --repo /repo --client cursor --with-repomix --with-serena",
+      "installer_with_oss_stack": "scripts/dg_agent.sh mcp-client-config --repo /repo --client cursor --with-oss-stack",
+      "one_shot_installer": "scripts/dg_agent.sh client-init --repo /repo --client cursor",
+      "recommended_bundle": {
+        "name": "dg-repomix-serena",
+        "servers": [
+          "diffusiongemma-local-agent",
+          "repomix",
+          "serena"
+        ],
+        "description": "Recommended MCP bundle: DG workflow tools, upstream Repomix repository packing, and upstream Serena semantic/LSP tools."
+      },
+      "server_name": "diffusiongemma-local-agent",
+      "server_command": "/root/diffusiongemma-agent/scripts/run_mcp_server.sh",
+      "snippets": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\mcp-client-snippets.json",
+      "optional_servers": {
+        "repomix": {
+          "server_name": "repomix",
+          "command": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\scripts\\run_repomix_mcp.sh",
+          "args": [],
+          "description": "Native upstream Repomix MCP server for repository packing."
+        },
+        "serena": {
+          "server_name": "serena",
+          "command": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\scripts\\run_serena_mcp.sh",
+          "args": [],
+          "description": "Native upstream Serena MCP server for semantic/LSP code tools."
+        }
+      },
+      "configs": {
+        "claude_code": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\claude-code.mcp.json",
+        "claude_desktop": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\claude-desktop-mcp.json",
+        "cursor": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\cursor.mcp.json",
+        "vscode": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\vscode.mcp.json"
+      },
+      "targets": {
+        "claude_code": ".mcp.json",
+        "claude_desktop": "claude_desktop_config.json",
+        "cursor": ".cursor/mcp.json",
+        "vscode": ".vscode/mcp.json"
+      }
+    },
+    "client_init": {
+      "status": "one-shot IDE/agent client bootstrap",
+      "route": "Initialize .dg-agent, install the recommended DG+Repomix+Serena MCP bundle, and write client instruction files in one command.",
+      "command": "scripts/dg_agent.sh client-init --repo /repo --client cursor",
+      "default_bundle": "dg-repomix-serena",
+      "steps": [
+        "workspace-init",
+        "mcp-client-config --with-oss-stack",
+        "agent-rules --target all",
+        "agent-commands --target all"
+      ],
+      "clients": [
+        "claude-code",
+        "claude-desktop",
+        "cursor",
+        "vscode"
+      ],
+      "workspace_launcher": ".dg-agent/bin/client-init --client cursor"
+    },
+    "agent_rules": {
+      "status": "copy-ready project instruction files",
+      "route": "Tell existing IDE/agent clients to use DG MCP repo tools, bounded sessions, notes, and verification.",
+      "installer": "scripts/dg_agent.sh agent-rules --repo /repo --target all",
+      "templates": {
+        "generic": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\agent-instructions.md",
+        "agents": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\AGENTS.dg.md",
+        "claude": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\CLAUDE.dg.md",
+        "copilot": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\copilot-instructions.dg.md",
+        "vscode": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\diffusiongemma.instructions.md",
+        "cursor": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\cursor-rules.dg.mdc"
+      },
+      "targets": {
+        "agents": "AGENTS.md",
+        "claude": "CLAUDE.md",
+        "copilot": ".github/copilot-instructions.md",
+        "vscode": ".github/instructions/diffusiongemma.instructions.md",
+        "cursor": ".cursor/rules/diffusiongemma-local-agent.mdc"
+      }
+    },
+    "agent_commands": {
+      "status": "repo-local workflow command kit for external agent clients",
+      "route": "Expose short, reusable DG workflows as Markdown snippets plus a Claude Code project skill.",
+      "installer": "scripts/dg_agent.sh agent-commands --repo /repo --target all",
+      "workspace_launcher": ".dg-agent/bin/agent-commands --target all",
+      "workspace_files": [
+        ".dg-agent/COMMANDS.md",
+        ".dg-agent/command-kit.json",
+        ".dg-agent/commands/dg-report.md",
+        ".dg-agent/commands/dg-smoke.md",
+        ".dg-agent/commands/dg-context.md",
+        ".dg-agent/commands/dg-plan-task.md",
+        ".dg-agent/commands/dg-agent.md",
+        ".dg-agent/commands/dg-verify.md",
+        ".dg-agent/commands/dg-mcp-handoff.md",
+        ".dg-agent/commands/dg-codex.md",
+        ".dg-agent/claude-skill/SKILL.md"
+      ],
+      "project_files": [
+        ".claude/skills/dg-local-agent/SKILL.md"
+      ]
+    }
+  },
+  "repo_local_files": {
+    "openai_compatible": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\openai-compatible.local.json",
+    "openai_env": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\openai.env",
+    "aider": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\aider.dg-fast.conf.yml",
+    "aider_workspace": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\aider.dg-workspace.conf.yml",
+    "aider_model_settings": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\aider.dg-model-settings.yml",
+    "aider_model_metadata": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\aider.dg-model-metadata.json",
+    "continue": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\continue.config.yaml",
+    "openhands": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\openhands.dg.toml",
+    "openhands_env": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\openhands.env",
+    "qwen_code_mcp": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\qwen-code.mcp.json",
+    "autogen": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\autogen.dg.json",
+    "smolagents": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\smolagents.dg.json",
+    "langgraph": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\langgraph.dg.json",
+    "crewai": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\crewai.dg.json",
+    "open_interpreter": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\open-interpreter.dg.json",
+    "llamaindex": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\llamaindex.dg.json",
+    "haystack": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\haystack.dg.json",
+    "swe_agent": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\swe-agent.dg.yaml",
+    "mini_swe_agent": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\mini-swe-agent.dg.yaml",
+    "mcp": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\mcp-server.json",
+    "mcp_client_snippets": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\mcp-client-snippets.json",
+    "claude_code_mcp": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\claude-code.mcp.json",
+    "claude_desktop_mcp": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\claude-desktop-mcp.json",
+    "cursor_mcp": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\cursor.mcp.json",
+    "vscode_mcp": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\vscode.mcp.json",
+    "goose_mcp": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\goose-mcp.dg.yaml",
+    "agent_instructions": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\agent-instructions.md",
+    "agents_rules": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\AGENTS.dg.md",
+    "claude_rules": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\CLAUDE.dg.md",
+    "copilot_rules": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\copilot-instructions.dg.md",
+    "vscode_instructions": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\diffusiongemma.instructions.md",
+    "cursor_rules": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\cursor-rules.dg.mdc",
+    "codex_handoff": ".dg-agent/CODEX.md",
+    "codex_config_template": ".dg-agent/codex.config.toml",
+    "codex_env": ".dg-agent/codex.env",
+    "agent_commands": ".dg-agent/COMMANDS.md",
+    "agent_command_kit": ".dg-agent/command-kit.json",
+    "claude_skill_template": ".dg-agent/claude-skill/SKILL.md",
+    "ide_clients": ".dg-agent/IDE_CLIENTS.md",
+    "ide_client_snippets": ".dg-agent/ide-client-snippets.json",
+    "kilo_code_config": ".dg-agent/kilo-code.config.json",
+    "litellm_model_registry": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\client_profiles\\litellm-local-model-registry.json",
+    "opencode": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\opencode.dg.json",
+    "opencode_agent": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\opencode.dg-agent.json",
+    "opencode_mcp": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\opencode.dg-mcp.json",
+    "litellm": "C:\\Users\\alexg\\Downloads\\diffusiongemma-agent\\configs\\litellm.dg.yaml"
+  }
+}

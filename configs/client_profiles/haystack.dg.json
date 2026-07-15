@@ -1,0 +1,21 @@
+{
+  "name": "DiffusionGemma Local Haystack RAG",
+  "package": "haystack-ai",
+  "document_store": "haystack.document_stores.in_memory.InMemoryDocumentStore",
+  "retriever": "haystack.components.retrievers.in_memory.InMemoryBM25Retriever",
+  "generator": "haystack.components.generators.chat.OpenAIChatGenerator",
+  "model": "diffusiongemma-local",
+  "api_base_url": "http://127.0.0.1:8090/v1",
+  "api_key": "dummy",
+  "top_k": 4,
+  "max_files": 120,
+  "max_file_chars": 4000,
+  "max_prompt_chars": 14000,
+  "max_tokens": 256,
+  "temperature": 0.0,
+  "generation_kwargs": {
+    "temperature": 0.0,
+    "max_tokens": 256
+  },
+  "notes": "Use a persistent local document cache plus Haystack InMemoryDocumentStore + InMemoryBM25Retriever for repo RAG. The safe proxy is used for optional generation; the persistent supervisor consumes retrieval-only context and keeps edits on dg_agent.sh session/task."
+}

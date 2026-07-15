@@ -1,0 +1,16 @@
+{
+  "name": "DiffusionGemma Local Open Interpreter",
+  "package": "open-interpreter",
+  "module": "interpreter",
+  "agent": "interpreter.interpreter",
+  "model": "openai/diffusiongemma-local",
+  "api_base": "http://127.0.0.1:4100/v1",
+  "api_key": "dummy",
+  "context_window": 768,
+  "max_tokens": 256,
+  "temperature": 0.0,
+  "offline": true,
+  "auto_run": false,
+  "safe_mode": "ask",
+  "notes": "Use for short interactive/code-execution experiments; keep reliable repo edits on dg_agent.sh agent/session/task."
+}

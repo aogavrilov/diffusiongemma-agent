@@ -1,0 +1,20 @@
+{
+  "openai/diffusiongemma-26b-a4b-it-iq4xs-aider-local": {
+    "max_tokens": 768,
+    "max_input_tokens": 768,
+    "max_output_tokens": 256,
+    "input_cost_per_token": 0,
+    "output_cost_per_token": 0,
+    "litellm_provider": "openai",
+    "mode": "chat"
+  },
+  "openai/diffusiongemma-26b-a4b-it-iq4xs-agent-fast-local": {
+    "max_tokens": 768,
+    "max_input_tokens": 640,
+    "max_output_tokens": 128,
+    "input_cost_per_token": 0,
+    "output_cost_per_token": 0,
+    "litellm_provider": "openai",
+    "mode": "chat"
+  }
+}

@@ -1,0 +1,34 @@
+model_list:
+  - model_name: diffusiongemma-local
+    litellm_params:
+      model: openai/diffusiongemma-26b-a4b-it-iq4xs-aider-local
+      api_base: http://127.0.0.1:8090/v1
+      api_key: dummy
+      supports_system_message: false
+      max_tokens: 256
+      timeout: 300
+    model_info:
+      mode: chat
+      max_input_tokens: 768
+      max_output_tokens: 256
+      description: Local DiffusionGemma via Aider-compatible proxy
+  - model_name: diffusiongemma-26b-a4b-it-iq4xs-aider-local
+    litellm_params:
+      model: openai/diffusiongemma-26b-a4b-it-iq4xs-aider-local
+      api_base: http://127.0.0.1:8090/v1
+      api_key: dummy
+      supports_system_message: false
+      max_tokens: 256
+      timeout: 300
+    model_info:
+      mode: chat
+      max_input_tokens: 768
+      max_output_tokens: 256
+      description: Alias for Aider-compatible local DiffusionGemma
+
+litellm_settings:
+  drop_params: true
+  request_timeout: 300
+
+general_settings:
+  disable_spend_logs: true

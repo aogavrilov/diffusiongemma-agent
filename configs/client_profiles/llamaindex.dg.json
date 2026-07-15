@@ -1,0 +1,18 @@
+{
+  "name": "DiffusionGemma Local LlamaIndex",
+  "package": "llama-index-core + llama-index-llms-openai-like",
+  "llm_class": "llama_index.llms.openai_like.OpenAILike",
+  "agent_workflow_class": "llama_index.core.agent.workflow.AgentWorkflow",
+  "agent_class": "llama_index.core.agent.workflow.ReActAgent",
+  "function_agent_class": "llama_index.core.agent.workflow.FunctionAgent",
+  "model": "diffusiongemma-local",
+  "api_base": "http://127.0.0.1:4100/v1",
+  "api_key": "dummy",
+  "context_window": 768,
+  "max_tokens": 256,
+  "temperature": 0.0,
+  "is_chat_model": true,
+  "is_function_calling_model": false,
+  "tools": ["list_files", "read_file", "search_repo"],
+  "notes": "Use AgentWorkflow.from_tools_or_functions for LlamaIndex RAG/agent experiments over the local OpenAI-compatible endpoint. With is_function_calling_model=false, LlamaIndex selects ReActAgent instead of FunctionAgent. Keep reliable edits on dg_agent.sh agent/session/task."
+}

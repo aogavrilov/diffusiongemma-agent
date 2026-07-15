@@ -1,0 +1,24 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "diffusiongemma-local/diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+  "small_model": "diffusiongemma-local/diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+  "provider": {
+    "diffusiongemma-local": {
+      "name": "DiffusionGemma local proxy",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://127.0.0.1:8090/v1",
+        "apiKey": "dg-local"
+      },
+      "models": {
+        "diffusiongemma-26b-a4b-it-iq4xs-aider-local": {
+          "name": "DiffusionGemma 26B-A4B IQ4_XS Aider proxy",
+          "limit": {
+            "context": 768,
+            "output": 256
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "name": "DiffusionGemma Local via LiteLLM",
+  "base_url": "http://127.0.0.1:4100/v1",
+  "api_key": "dummy",
+  "model": "diffusiongemma-local",
+  "max_input_tokens": 768,
+  "max_output_tokens": 256,
+  "notes": [
+    "Use this profile for OpenAI-compatible clients.",
+    "Prefer file-level tasks and short context packs; the current DG runtime is limited to MAXTOK=768.",
+    "For reliable code edits, prefer scripts/dg_agent.sh session/task over raw IDE agent loops."
+  ],
+  "clients": {
+    "openai_sdk": {
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local"
+    },
+    "cline": {
+      "api_provider": "OpenAI Compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local"
+    },
+    "roo_code": {
+      "api_provider": "OpenAI Compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local"
+    },
+    "continue": {
+      "provider": "openai",
+      "apiBase": "http://127.0.0.1:4100/v1",
+      "apiKey": "dummy",
+      "model": "diffusiongemma-local"
+    },
+    "openhands": {
+      "provider": "LiteLLM Proxy",
+      "base_url": "http://127.0.0.1:4100",
+      "api_key": "dummy",
+      "model": "litellm_proxy/diffusiongemma-local",
+      "config": "configs/client_profiles/openhands.dg.toml",
+      "env": "configs/client_profiles/openhands.env"
+    },
+    "qwen_code": {
+      "provider": "OpenAI Compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local",
+      "command": "scripts/dg_agent.sh qwen-code -- --repo /repo --dry-run",
+      "mcp_config": "configs/client_profiles/qwen-code.mcp.json"
+    },
+    "autogen": {
+      "provider": "OpenAI Compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local",
+      "command": "scripts/dg_agent.sh autogen -- --repo /repo --dry-run",
+      "config": "configs/client_profiles/autogen.dg.json",
+      "model_client": "autogen_ext.models.openai.OpenAIChatCompletionClient"
+    },
+    "smolagents": {
+      "provider": "OpenAI Compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local",
+      "command": "scripts/dg_agent.sh smolagents -- --repo /repo --dry-run",
+      "config": "configs/client_profiles/smolagents.dg.json",
+      "agent": "smolagents.CodeAgent",
+      "model_class": "smolagents.OpenAIModel"
+    },
+    "langgraph": {
+      "provider": "OpenAI Compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local",
+      "command": "scripts/dg_agent.sh langgraph -- --repo /repo --dry-run",
+      "config": "configs/client_profiles/langgraph.dg.json",
+      "agent_factory": "langchain.agents.create_agent",
+      "fallback_agent_factory": "langgraph.prebuilt.create_react_agent",
+      "model_class": "langchain_openai.ChatOpenAI"
+    },
+    "crewai": {
+      "provider": "OpenAI Compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "openai/diffusiongemma-local",
+      "command": "scripts/dg_agent.sh crewai -- --repo /repo --dry-run",
+      "config": "configs/client_profiles/crewai.dg.json",
+      "classes": {
+        "agent": "crewai.Agent",
+        "task": "crewai.Task",
+        "crew": "crewai.Crew",
+        "llm": "crewai.LLM"
+      }
+    },
+    "open_interpreter": {
+      "provider": "OpenAI Compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "openai/diffusiongemma-local",
+      "command": "scripts/dg_agent.sh open-interpreter -- --repo /repo --dry-run",
+      "config": "configs/client_profiles/open-interpreter.dg.json",
+      "agent": "interpreter.interpreter",
+      "auto_run": false,
+      "safe_mode": "ask"
+    },
+    "llamaindex": {
+      "provider": "OpenAI Compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local",
+      "command": "scripts/dg_agent.sh llamaindex -- --repo /repo --dry-run",
+      "config": "configs/client_profiles/llamaindex.dg.json",
+      "llm_class": "llama_index.llms.openai_like.OpenAILike",
+      "agent_workflow_class": "llama_index.core.agent.workflow.AgentWorkflow",
+      "agent_class": "llama_index.core.agent.workflow.ReActAgent",
+      "function_agent_class": "llama_index.core.agent.workflow.FunctionAgent",
+      "is_function_calling_model": false,
+      "tools": ["list_files", "read_file", "search_repo"]
+    },
+    "haystack": {
+      "provider": "OpenAI Compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "diffusiongemma-local",
+      "command": "scripts/dg_agent.sh haystack -- --repo /repo --dry-run",
+      "config": "configs/client_profiles/haystack.dg.json",
+      "document_store": "haystack.document_stores.in_memory.InMemoryDocumentStore",
+      "retriever": "haystack.components.retrievers.in_memory.InMemoryBM25Retriever",
+      "generator": "haystack.components.generators.chat.OpenAIChatGenerator",
+      "top_k": 4
+    },
+    "swe_agent": {
+      "provider": "litellm/openai-compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "openai/diffusiongemma-local",
+      "config": "configs/client_profiles/swe-agent.dg.yaml"
+    },
+    "mini_swe_agent": {
+      "provider": "litellm/openai-compatible",
+      "base_url": "http://127.0.0.1:4100/v1",
+      "api_key": "dummy",
+      "model": "openai/diffusiongemma-local",
+      "config": "configs/client_profiles/mini-swe-agent.dg.yaml",
+      "model_registry": "configs/client_profiles/litellm-local-model-registry.json"
+    }
+  }
+}

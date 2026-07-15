@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+convert_arg() {
+  local arg="$1"
+  if [[ "$arg" =~ ^/mnt/([a-zA-Z])/(.*)$ ]]; then
+    local drive="${BASH_REMATCH[1]}"
+    local rest="${BASH_REMATCH[2]}"
+    printf '%s:/%s\n' "${drive^^}" "$rest"
+  else
+    printf '%s\n' "$arg"
+  fi
+}
+
+args=()
+for arg in "$@"; do
+  args+=("$(convert_arg "$arg")")
+done
+
+DG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+if [[ -x "$DG_ROOT/.tools/node-linux/bin/node" ]]; then
+  exec "$DG_ROOT/.tools/node-linux/bin/node" "$@"
+fi
+
+exec "/mnt/c/Program Files/nodejs/node.exe" "${args[@]}"

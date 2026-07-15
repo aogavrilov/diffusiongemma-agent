@@ -1,0 +1,21 @@
+{
+  "name": "DiffusionGemma Local CrewAI Crew",
+  "package": "crewai",
+  "classes": {
+    "agent": "crewai.Agent",
+    "task": "crewai.Task",
+    "crew": "crewai.Crew",
+    "llm": "crewai.LLM"
+  },
+  "model": "openai/diffusiongemma-local",
+  "base_url": "http://127.0.0.1:4100/v1",
+  "api_key": "dummy",
+  "max_tokens": 256,
+  "temperature": 0.0,
+  "process": "sequential",
+  "verbose": false,
+  "notes": [
+    "Use this as a CrewAI multi-agent framework profile over the local OpenAI-compatible endpoint.",
+    "Prefer scripts/dg_agent.sh agent/session/task for reliable code edits; CrewAI is an optional framework route."
+  ]
+}

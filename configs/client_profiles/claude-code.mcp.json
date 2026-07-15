@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "diffusiongemma-local-agent": {
+      "command": "/root/diffusiongemma-agent/scripts/run_mcp_server.sh",
+      "args": [],
+      "env": {}
+    }
+  }
+}

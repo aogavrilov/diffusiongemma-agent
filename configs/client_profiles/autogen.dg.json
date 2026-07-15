@@ -1,0 +1,21 @@
+{
+  "name": "DiffusionGemma Local AutoGen AgentChat",
+  "package": "autogen-agentchat + autogen-ext[openai]",
+  "model_client": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+  "base_url": "http://127.0.0.1:4100/v1",
+  "api_key": "dummy",
+  "model": "diffusiongemma-local",
+  "max_tokens": 256,
+  "temperature": 0.0,
+  "model_info": {
+    "vision": false,
+    "function_calling": false,
+    "json_output": false,
+    "family": "unknown",
+    "structured_output": false
+  },
+  "notes": [
+    "Use this as an AutoGen AgentChat model-client profile for small-context local experiments.",
+    "Prefer scripts/dg_agent.sh agent/session for reliable code edits; AutoGen is an optional framework route."
+  ]
+}

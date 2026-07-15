@@ -1,0 +1,18 @@
+{
+  "name": "DiffusionGemma Local LangGraph Agent",
+  "package": "langgraph + langchain + langchain-openai",
+  "agent_factory": "langchain.agents.create_agent",
+  "fallback_agent_factory": "langgraph.prebuilt.create_react_agent",
+  "model_class": "langchain_openai.ChatOpenAI",
+  "model": "diffusiongemma-local",
+  "base_url": "http://127.0.0.1:4100/v1",
+  "api_key": "dummy",
+  "max_tokens": 256,
+  "temperature": 0.0,
+  "tools": [],
+  "system_prompt": "You are using a local small-context DiffusionGemma profile. Keep responses short and ask for exact file snippets before broad edits.",
+  "notes": [
+    "Use this as a LangGraph/LangChain framework profile over the local OpenAI-compatible endpoint.",
+    "Prefer scripts/dg_agent.sh agent/session/task for reliable code edits; LangGraph is an optional graph-agent route."
+  ]
+}

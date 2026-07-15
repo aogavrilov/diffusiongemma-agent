@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "diffusiongemma-local-agent": {
+      "type": "stdio",
+      "command": "/root/diffusiongemma-agent/scripts/run_mcp_server.sh",
+      "args": [],
+      "env": {}
+    }
+  }
+}

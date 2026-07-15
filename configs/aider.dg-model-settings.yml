@@ -1,0 +1,30 @@
+- name: openai/diffusiongemma-26b-a4b-it-iq4xs-aider-local
+  edit_format: whole
+  use_repo_map: false
+  send_undo_reply: false
+  reminder: user
+  examples_as_sys_msg: false
+  use_system_prompt: true
+  use_temperature: false
+  streaming: false
+  accepts_settings: []
+  extra_params:
+    max_tokens: 256
+
+- name: openai/diffusiongemma-26b-a4b-it-iq4xs-agent-fast-local
+  edit_format: diff
+  use_repo_map: false
+  send_undo_reply: false
+  reminder: user
+  examples_as_sys_msg: false
+  use_system_prompt: true
+  use_temperature: false
+  streaming: false
+  accepts_settings: []
+  extra_params:
+    max_tokens: 128
+    extra_headers:
+      X-DG-Raw-Output: "1"
+    extra_body:
+      dg_raw_output: true
+      n_blocks: 1

@@ -1,0 +1,16 @@
+schema: v1
+models:
+  - name: DiffusionGemma Local
+    provider: openai
+    model: diffusiongemma-local
+    apiBase: http://127.0.0.1:4100/v1
+    apiKey: dummy
+    roles:
+      - chat
+      - edit
+      - apply
+context:
+  - provider: code
+  - provider: diff
+  - provider: terminal
+  - provider: problems

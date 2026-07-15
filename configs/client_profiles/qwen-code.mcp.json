@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "diffusiongemma-local-agent": {
+      "command": "/root/diffusiongemma-agent/scripts/run_mcp_server.sh",
+      "args": [],
+      "env": {}
+    },
+    "repomix": {
+      "command": "/root/diffusiongemma-agent/scripts/run_repomix_mcp.sh",
+      "args": [],
+      "env": {}
+    },
+    "serena": {
+      "command": "/root/diffusiongemma-agent/scripts/run_serena_mcp.sh",
+      "args": [],
+      "env": {}
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "DiffusionGemma Local smolagents CodeAgent",
+  "package": "smolagents[toolkit] + openai",
+  "agent": "smolagents.CodeAgent",
+  "model_class": "smolagents.OpenAIModel",
+  "model_id": "diffusiongemma-local",
+  "api_base": "http://127.0.0.1:4100/v1",
+  "api_key": "dummy",
+  "max_tokens": 256,
+  "temperature": 0.0,
+  "max_steps": 2,
+  "flatten_messages_as_text": false,
+  "notes": [
+    "Use this as a Hugging Face smolagents CodeAgent profile over the local OpenAI-compatible endpoint.",
+    "Prefer scripts/dg_agent.sh agent/session/task for reliable code edits; smolagents is an optional framework route."
+  ]
+}

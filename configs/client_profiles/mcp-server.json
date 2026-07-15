@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "diffusiongemma-local-agent": {
+      "command": "/root/diffusiongemma-agent/scripts/run_mcp_server.sh",
+      "args": [],
+      "env": {}
+    }
+  },
+  "tools": [
+    "dg_task_note",
+    "dg_task_notes",
+    "dg_repo_status",
+    "dg_list_files",
+    "dg_search",
+    "dg_read_file",
+    "dg_git_diff",
+    "dg_status",
+    "dg_context",
+    "dg_rag_context",
+    "dg_rag_answer",
+    "dg_repo_pack",
+    "dg_repo_map",
+    "dg_ast_grep",
+    "dg_code_outline",
+    "dg_preflight",
+    "dg_plan",
+    "dg_task",
+    "dg_session",
+    "dg_verify",
+    "dg_capabilities",
+    "dg_client_smoke",
+    "dg_client_report",
+    "dg_sessions",
+    "dg_session_artifact"
+  ]
+}

@@ -1,0 +1,20 @@
+---
+applyTo: "**"
+---
+
+# DiffusionGemma Local Agent Instructions
+
+This repository can use the local DiffusionGemma agent stack through the DG MCP server and `.dg-agent` launchers.
+
+- Prefer MCP tools over large pasted context. Start with `dg_repo_status`, `dg_list_files`, `dg_repo_map`, `dg_code_outline`, `dg_search`, `dg_ast_grep`, `dg_read_file`, and `dg_git_diff`.
+- For repository-scale questions, use `dg_rag_context` to retrieve a compact file map and snippets; use `dg_rag_answer` only when a direct model answer over retrieved context is useful.
+- Use `dg_repo_pack` with tight `include` filters when an OSS Repomix packed context is more useful than ranked snippets.
+- Use `dg_repo_map` for a compact Aider-style repository sketch before deciding which files to inspect.
+- Use `dg_ast_grep` for structural code search, for example finding returns, call sites, decorators, or language-specific constructs by AST pattern.
+- Use `dg_code_outline` first when a symbol map is enough to choose files or functions before reading full code.
+- Run `dg_preflight` before edits. Use `dg_context` for bounded task context, `dg_session` for one-shot bounded edits, or `dg_plan` -> `dg_task` when a plan should be reviewed or persisted before execution.
+- Keep tasks file-level or small multi-file. Provide explicit file hints whenever possible.
+- Save cross-session handoff state with `dg_task_note`; on continuation, read `dg://notes/latest`, `dg://sessions/latest`, and `dg://sessions/latest/diff`.
+- Verify with `dg_verify` or a repo-specific test command before reporting success.
+- Do not rely on generic chat for code edits. The reliable path is MCP tools or `.dg-agent/bin/agent --task "..." --file path`.
+- Before changing files, inspect current git state; after changing files, inspect `dg_git_diff` and report the exact verification result.

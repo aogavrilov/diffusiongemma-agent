@@ -1,0 +1,21 @@
+# SWE-agent profile fragment for the local DiffusionGemma LiteLLM gateway.
+# SWE-agent is maintenance-mode upstream; prefer mini-swe-agent when possible.
+
+agent:
+  model:
+    name: openai/diffusiongemma-local
+    api_base: http://127.0.0.1:4100/v1
+    api_key: dummy
+    temperature: 0.0
+    top_p: null
+    per_instance_cost_limit: 0.0
+    total_cost_limit: 0.0
+    per_instance_call_limit: 24
+    max_input_tokens: 0
+    max_output_tokens: 256
+    litellm_model_registry: /root/diffusiongemma-agent/configs/client_profiles/litellm-local-model-registry.json
+    completion_kwargs:
+      drop_params: true
+  tools:
+    parse_function:
+      type: thought_action

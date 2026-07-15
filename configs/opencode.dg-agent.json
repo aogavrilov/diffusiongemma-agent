@@ -1,0 +1,71 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "diffusiongemma-local/diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+  "small_model": "diffusiongemma-local/diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+  "provider": {
+    "diffusiongemma-local": {
+      "name": "DiffusionGemma local compact agent",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://127.0.0.1:8090/v1",
+        "apiKey": "dg-local",
+        "timeout": 600000
+      },
+      "models": {
+        "diffusiongemma-26b-a4b-it-iq4xs-aider-local": {
+          "name": "DiffusionGemma 26B-A4B compact agent proxy",
+          "limit": {
+            "context": 768,
+            "output": 256
+          }
+        }
+      }
+    }
+  },
+  "autoupdate": false,
+  "share": "disabled",
+  "snapshot": false,
+  "tools": {
+    "bash": true,
+    "read": false,
+    "edit": false,
+    "write": false,
+    "apply_patch": false,
+    "glob": false,
+    "grep": false,
+    "list": false,
+    "webfetch": false,
+    "websearch": false,
+    "lsp": false,
+    "task": false,
+    "todowrite": false,
+    "skill": false,
+    "question": false
+  },
+  "agent": {
+    "dg_delegate": {
+      "description": "Compact repository agent that delegates each task to the verified local DG workflow.",
+      "model": "diffusiongemma-local/diffusiongemma-26b-a4b-it-iq4xs-aider-local",
+      "temperature": 0,
+      "prompt": "You are a compact local code agent. Use the Bash tool once for each user request. The local DG delegate will inspect the repository for read-only requests and run the verified edit workflow for changes. Do not claim a change succeeded unless the tool result says Session status: success. Do not fabricate repository contents, and keep the final answer short and factual.",
+      "tools": {
+        "bash": true,
+        "read": false,
+        "edit": false,
+        "write": false,
+        "apply_patch": false,
+        "glob": false,
+        "grep": false,
+        "list": false,
+        "webfetch": false,
+        "websearch": false,
+        "lsp": false,
+        "task": false,
+        "todowrite": false,
+        "skill": false,
+        "question": false
+      }
+    }
+  },
+  "default_agent": "dg_delegate"
+}

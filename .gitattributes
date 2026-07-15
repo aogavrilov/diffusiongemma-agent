@@ -1,0 +1,3 @@
+* text=auto
+*.sh text eol=lf
+packaging/hf/LICENSES/NVIDIA-CUDA-EULA.txt whitespace=-blank-at-eof,-trailing-space

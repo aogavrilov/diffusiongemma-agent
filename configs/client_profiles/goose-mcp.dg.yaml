@@ -1,0 +1,19 @@
+extensions:
+  dg_agent:
+    enabled: true
+    type: stdio
+    name: dg_agent
+    display_name: DiffusionGemma Local Agent Tools
+    description: Reliable local DiffusionGemma coding-agent tools over MCP.
+    cmd: /root/diffusiongemma-agent/scripts/run_mcp_server.sh
+    args: []
+    timeout: 300
+  serena:
+    enabled: true
+    type: stdio
+    name: serena
+    display_name: Serena Semantic Code Tools
+    description: Upstream Serena semantic/LSP MCP server for symbols, references, diagnostics, and safe symbol edits.
+    cmd: /root/diffusiongemma-agent/scripts/run_serena_mcp.sh
+    args: []
+    timeout: 300

@@ -1,0 +1,53 @@
+# mini-swe-agent profile for the local DiffusionGemma LiteLLM gateway.
+# It intentionally keeps the loop short and disables cost-tracking failures.
+
+agent:
+  step_limit: 8
+  cost_limit: 0.01
+  mode: confirm
+  system_template: |
+    You are a concise coding agent working in a small-context local model.
+    Inspect only relevant files, make minimal edits, and verify the result.
+    Every response must contain exactly one bash action block:
+
+    ```mswea_bash_command
+    command
+    ```
+
+    Use one short command or commands joined with &&. Do not emit more than
+    one action block.
+  instance_template: |
+    Please solve this issue: {{task}}
+
+    Use short bash commands. Prefer rg, sed -n, python -m py_compile, and
+    focused tests. End with exactly this command in a bash action block:
+    echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT
+
+environment:
+  timeout: 480
+  env:
+    PAGER: cat
+    MANPAGER: cat
+    LESS: -R
+    PIP_PROGRESS_BAR: "off"
+    TQDM_DISABLE: "1"
+
+model:
+  model_class: litellm_textbased
+  model_name: openai/diffusiongemma-local
+  cost_tracking: ignore_errors
+  litellm_model_registry: /root/diffusiongemma-agent/configs/client_profiles/litellm-local-model-registry.json
+  format_error_template: |
+    Your previous response did not contain exactly one valid bash action block.
+    Respond more concisely and include exactly one block:
+
+    ```mswea_bash_command
+    command
+    ```
+  model_kwargs:
+    custom_llm_provider: openai
+    api_base: http://127.0.0.1:4100/v1
+    api_key: dummy
+    drop_params: true
+    temperature: 0.0
+    max_tokens: 256

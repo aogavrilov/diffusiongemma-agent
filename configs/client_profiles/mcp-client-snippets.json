@@ -1,0 +1,130 @@
+{
+  "name": "DiffusionGemma local MCP client snippets",
+  "server_name": "diffusiongemma-local-agent",
+  "server_command": "/root/diffusiongemma-agent/scripts/run_mcp_server.sh",
+  "transport": "stdio",
+  "recommended_bundle": {
+    "name": "dg-repomix-serena",
+    "servers": [
+      "diffusiongemma-local-agent",
+      "repomix",
+      "serena"
+    ],
+    "description": "DG workflow tools plus upstream Repomix repository packing and upstream Serena semantic/LSP tools."
+  },
+  "optional_servers": {
+    "repomix": {
+      "description": "Native upstream Repomix MCP server for repository packing.",
+      "command": "/root/diffusiongemma-agent/scripts/run_repomix_mcp.sh",
+      "args": [],
+      "env": {}
+    },
+    "serena": {
+      "description": "Native upstream Serena MCP server for semantic/LSP code tools.",
+      "command": "/root/diffusiongemma-agent/scripts/run_serena_mcp.sh",
+      "args": [],
+      "env": {}
+    }
+  },
+  "clients": {
+    "claude_code": {
+      "target": ".mcp.json",
+      "config_file": "configs/client_profiles/claude-code.mcp.json",
+      "format": "mcpServers",
+      "snippet": {
+        "mcpServers": {
+          "diffusiongemma-local-agent": {
+            "command": "/root/diffusiongemma-agent/scripts/run_mcp_server.sh",
+            "args": [],
+            "env": {}
+          },
+          "repomix": {
+            "command": "/root/diffusiongemma-agent/scripts/run_repomix_mcp.sh",
+            "args": [],
+            "env": {}
+          },
+          "serena": {
+            "command": "/root/diffusiongemma-agent/scripts/run_serena_mcp.sh",
+            "args": [],
+            "env": {}
+          }
+        }
+      }
+    },
+    "claude_desktop": {
+      "target": "claude_desktop_config.json",
+      "config_file": "configs/client_profiles/claude-desktop-mcp.json",
+      "format": "mcpServers",
+      "snippet": {
+        "mcpServers": {
+          "diffusiongemma-local-agent": {
+            "command": "/root/diffusiongemma-agent/scripts/run_mcp_server.sh",
+            "args": [],
+            "env": {}
+          },
+          "repomix": {
+            "command": "/root/diffusiongemma-agent/scripts/run_repomix_mcp.sh",
+            "args": [],
+            "env": {}
+          },
+          "serena": {
+            "command": "/root/diffusiongemma-agent/scripts/run_serena_mcp.sh",
+            "args": [],
+            "env": {}
+          }
+        }
+      }
+    },
+    "cursor": {
+      "target": ".cursor/mcp.json",
+      "config_file": "configs/client_profiles/cursor.mcp.json",
+      "format": "mcpServers",
+      "snippet": {
+        "mcpServers": {
+          "diffusiongemma-local-agent": {
+            "command": "/root/diffusiongemma-agent/scripts/run_mcp_server.sh",
+            "args": [],
+            "env": {}
+          },
+          "repomix": {
+            "command": "/root/diffusiongemma-agent/scripts/run_repomix_mcp.sh",
+            "args": [],
+            "env": {}
+          },
+          "serena": {
+            "command": "/root/diffusiongemma-agent/scripts/run_serena_mcp.sh",
+            "args": [],
+            "env": {}
+          }
+        }
+      }
+    },
+    "vscode": {
+      "target": ".vscode/mcp.json",
+      "config_file": "configs/client_profiles/vscode.mcp.json",
+      "format": "servers",
+      "snippet": {
+        "servers": {
+          "diffusiongemma-local-agent": {
+            "type": "stdio",
+            "command": "/root/diffusiongemma-agent/scripts/run_mcp_server.sh",
+            "args": [],
+            "env": {}
+          },
+          "repomix": {
+            "type": "stdio",
+            "command": "/root/diffusiongemma-agent/scripts/run_repomix_mcp.sh",
+            "args": [],
+            "env": {}
+          },
+          "serena": {
+            "type": "stdio",
+            "command": "/root/diffusiongemma-agent/scripts/run_serena_mcp.sh",
+            "args": [],
+            "env": {}
+          }
+        }
+      }
+    }
+  }
+}

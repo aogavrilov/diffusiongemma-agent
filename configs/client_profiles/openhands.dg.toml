@@ -1,0 +1,16 @@
+# OpenHands profile for the local DiffusionGemma LiteLLM proxy.
+# Use as a config.toml fragment, or copy the values into OpenHands Settings -> LLM.
+
+[llm]
+model = "litellm_proxy/diffusiongemma-local"
+base_url = "http://127.0.0.1:4100"
+api_key = "dummy"
+num_retries = 2
+retry_min_wait = 1
+retry_max_wait = 10
+retry_multiplier = 2
+drop_params = true
+disable_vision = true
+caching_prompt = false
+max_input_tokens = 768
+max_output_tokens = 256
