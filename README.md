@@ -28,7 +28,27 @@ It is best suited to concrete file-level tasks such as fixing a known bug,
 updating a small feature, or adding focused tests. It is not a replacement for
 a large-context cloud agent on broad, ambiguous repository-wide work.
 
-## Quick start
+## Easiest Windows setup
+
+No Python, CUDA Toolkit, compiler, or command line is required.
+
+1. [Download DiffusionGemmaAgentSetup-0.1.0.exe](https://github.com/aogavrilov/diffusiongemma-agent/releases/download/desktop-v0.1.0/DiffusionGemmaAgentSetup-0.1.0.exe).
+2. Open the installer, then launch **DiffusionGemma Agent**.
+3. The app checks Windows, WSL2, the NVIDIA GPU, VRAM, disk space, and runtime
+   access automatically.
+4. Review the model and CUDA licenses, click **Download and install**, then
+   choose a Git repository and describe the change you want.
+
+The Windows app includes its own Python runtime. The first setup still
+downloads approximately 13.2 GB of model and CUDA files; plan for at least
+30 GiB of free disk space. The current alpha installer is not code-signed, so
+Windows may display an unknown-publisher warning. Its checksum is published
+with the GitHub release.
+
+See the [desktop guide](https://github.com/aogavrilov/diffusiongemma-agent/blob/main/docs/WINDOWS_DESKTOP.md)
+for the complete visual workflow.
+
+## Command-line alternative
 
 Run these commands in PowerShell:
 
@@ -39,8 +59,7 @@ dg-agent install --accept-licenses
 dg-agent status
 ```
 
-The first installation downloads approximately 13.2 GB and creates another
-runtime copy inside WSL. Plan for at least 30 GiB of free disk space.
+The CLI installs the same runtime as the desktop app.
 
 Run a task against a clean Git worktree:
 
@@ -64,7 +83,7 @@ dg-agent stop
 | VRAM | 16 GB minimum; the tested GPU is an RTX 3080 Laptop 16 GB |
 | Driver | Current NVIDIA Windows driver with WSL CUDA support |
 | Disk | 15 GiB hard minimum for download; 30 GiB recommended for download + WSL copy |
-| Python | Python 3.10 or newer on Windows |
+| Python | Not required by the desktop app; Python 3.10+ for CLI installation |
 | Network | Required for PyPI, Hugging Face, and WSL Python dependencies during install |
 
 CPU-only execution, native Linux installation, macOS, AMD GPUs, and GPUs below
@@ -177,7 +196,7 @@ Detailed diagnostics are in the
 
 ## Source and reproducibility
 
-- Agent, installer, and packaging source:
+- Agent, desktop app, installer, and packaging source:
   [aogavrilov/diffusiongemma-agent](https://github.com/aogavrilov/diffusiongemma-agent)
 - Custom llama.cpp/CUDA backend source:
   [aogavrilov/diffusiongemma-llama-cpp-diffusion](https://github.com/aogavrilov/diffusiongemma-llama-cpp-diffusion)
