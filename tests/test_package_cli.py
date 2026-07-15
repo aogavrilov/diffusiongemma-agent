@@ -113,10 +113,10 @@ class PackageCliTests(unittest.TestCase):
             model = self.create_runtime_bundle(root)
             with patch.object(cli, "MODEL_BYTES", 4):
                 discovery = cli.local_runtime_discovery([Path(temporary)])
-        self.assertTrue(discovery["found"])
-        self.assertEqual(discovery["best"]["kind"], "runtime")
-        self.assertEqual(Path(discovery["best"]["runtime_dir"]), root)
-        self.assertEqual(Path(discovery["best"]["model_file"]), model)
+            self.assertTrue(discovery["found"])
+            self.assertEqual(discovery["best"]["kind"], "runtime")
+            self.assertTrue(Path(discovery["best"]["runtime_dir"]).samefile(root))
+            self.assertTrue(Path(discovery["best"]["model_file"]).samefile(model))
 
     def test_discovery_accepts_a_standalone_compatible_gguf(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -124,8 +124,8 @@ class PackageCliTests(unittest.TestCase):
             model.write_bytes(b"test")
             with patch.object(cli, "MODEL_BYTES", 4):
                 discovery = cli.local_runtime_discovery([Path(temporary)])
-        self.assertEqual(discovery["best"]["kind"], "model")
-        self.assertEqual(Path(discovery["best"]["model_file"]), model)
+            self.assertEqual(discovery["best"]["kind"], "model")
+            self.assertTrue(Path(discovery["best"]["model_file"]).samefile(model))
 
     def test_install_skips_download_for_a_complete_local_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
