@@ -6313,23 +6313,23 @@ def deterministic_read_answer(repo: Path, task: str, data: dict[str, Any]) -> st
         skip_dirs = {".git", ".venv", "__pycache__", "node_modules", "tmp", "temp", "scratch", ".codex_tmp"}
         candidates: list[Path] = []
         try:
-            for path in repo.rglob("*"):
-                if not path.is_file() or any(part in skip_dirs for part in path.relative_to(repo).parts):
-                    continue
-                if path.name.lower() in {"readme.md", "readme.rst", "readme.txt"}:
-                    candidates.insert(0, path)
-                elif path.suffix.lower() in {".py", ".js", ".ts", ".toml", ".yaml", ".yml", ".tex"}:
-                    candidates.append(path)
+            for root, dirs, names in os.walk(repo, topdown=True):
+                dirs[:] = [name for name in dirs if name not in skip_dirs]
+                for name in names:
+                    path = Path(root) / name
+                    if path.name.lower() in {"readme.md", "readme.rst", "readme.txt"}:
+                        candidates.insert(0, path)
+                    elif path.suffix.lower() in {".py", ".js", ".ts", ".toml", ".yaml", ".yml", ".tex"}:
+                        candidates.append(path)
+                    if len(candidates) >= 8:
+                        break
                 if len(candidates) >= 8:
                     break
         except OSError:
             candidates = []
         selected = [path.relative_to(repo).as_posix() for path in candidates[:6]]
-    overview = any(
-        marker in task.lower()
-        for marker in ("describe", "summarize", "overview", "what is in", "опиши", "проект", "обзор", "что в")
-    )
-    lines = ["Краткий обзор репозитория", "", f"Папка: `{repo}`"]
+    overview = is_repository_overview_task(task)
+    lines = ["Repository overview", "", f"Folder: `{repo}`"]
     if overview:
         preferred = next(
             (item for item in selected if Path(item).name.lower() in {"readme.md", "readme.rst", "readme.txt"}),
@@ -6353,19 +6353,19 @@ def deterministic_read_answer(repo: Path, task: str, data: dict[str, Any]) -> st
                 if len(prose) >= 2:
                     break
             if heading:
-                lines.extend([f"Проект: **{heading}**", ""])
+                lines.extend([f"Project: **{heading}**", ""])
             if prose:
                 lines.extend(prose + [""])
-            lines.append(f"Основной README: `{preferred}`")
+            lines.append(f"Primary README: `{preferred}`")
         else:
-            lines.append("README-файл не найден; описание составлено по найденным файлам.")
+            lines.append("No README was found; the description is based on discovered files.")
         if selected:
-            lines.extend(["", "Релевантные файлы:"])
+            lines.extend(["", "Relevant files:"])
             lines.extend(f"- `{item}`" for item in selected[:6])
     else:
-        lines.extend(["", "Модель не сформировала краткий ответ, поэтому показан результат локального поиска."])
+        lines.extend(["", "The model did not return a short answer; these are the files found by local retrieval."])
         if selected:
-            lines.extend(["", "Релевантные файлы:"])
+            lines.extend(["", "Relevant files:"])
             lines.extend(f"- `{item}`" for item in selected[:6])
     return "\n".join(lines).rstrip() + "\n"
 
@@ -6682,6 +6682,23 @@ def usable_agent_read_answer(value: Any) -> bool:
     return True
 
 
+def is_repository_overview_task(task: str) -> bool:
+    lowered = task.lower()
+    markers = (
+        "describe",
+        "summarize",
+        "overview",
+        "what is in",
+        "what is this",
+        "\u043e\u043f\u0438\u0448\u0438",
+        "\u043e\u0431\u0437\u043e\u0440",
+        "\u0447\u0442\u043e \u0432",
+        "\u0447\u0442\u043e \u044d\u0442\u043e",
+        "\u043f\u0440\u043e\u0435\u043a\u0442",
+    )
+    return any(marker in lowered for marker in markers)
+
+
 def run_agent_read(args: argparse.Namespace, selected_mode: str) -> int:
     repo = Path(args.repo).resolve()
     if not repo.exists() or not repo.is_dir():
@@ -6692,6 +6709,32 @@ def run_agent_read(args: argparse.Namespace, selected_mode: str) -> int:
     transcript = run_dir / "tool-loop.json"
     canonical_report_path = run_dir / "agent.json"
     report_path = Path(args.report).resolve() if args.report else canonical_report_path
+    if is_repository_overview_task(args.task):
+        answer = deterministic_read_answer(repo, args.task, {"selected_files": []})
+        report = {
+            "repo": str(repo),
+            "task": args.task,
+            "mode": selected_mode,
+            "route": "deterministic_overview",
+            "run_dir": str(run_dir),
+            "returncode": 0,
+            "status": "success",
+            "elapsed_sec": 0.0,
+            "final_content": answer,
+            "answer_mode": "readme_summary",
+            "artifacts": {"agent_json": str(canonical_report_path)},
+        }
+        report_text = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
+        canonical_report_path.write_text(report_text, encoding="utf-8")
+        if report_path != canonical_report_path:
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(report_text, encoding="utf-8")
+        print(f"Agent mode: {selected_mode}")
+        print("Agent route: deterministic_overview")
+        print("Agent status: success rc=0")
+        print("\n" + answer.strip())
+        print(f"Agent report: {report_path}")
+        return 0
     python_bin = DG_ROOT / ".venv" / "bin" / "python"
     if not python_bin.exists():
         python_bin = DG_ROOT / ".venv-litellm" / "bin" / "python"
