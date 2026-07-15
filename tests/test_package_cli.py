@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from diffusiongemma_agent import __version__
 from diffusiongemma_agent import cli
+from scripts.dg_agent import deterministic_read_answer
 from scripts.rag_code_agent import build_context
 
 
@@ -69,6 +70,20 @@ class PackageCliTests(unittest.TestCase):
 
             self.assertIn("README.md", context)
             self.assertNotIn("irrelevant.md", context)
+
+    def test_read_fallback_formats_a_repository_answer(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "README.md").write_text(
+                "# Example Project\n\nThis project builds a local preview.\n",
+                encoding="utf-8",
+            )
+
+            answer = deterministic_read_answer(root, "опиши проект", {"selected_files": []})
+
+            self.assertIn("Example Project", answer)
+            self.assertIn("This project builds a local preview.", answer)
+            self.assertNotIn("@@ 1-", answer)
 
     def test_read_task_does_not_require_git(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

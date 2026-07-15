@@ -708,7 +708,12 @@ class AgentDesktop:
     def _task_finished(self, code: int, output: str, repo: Path) -> None:
         if code == 0:
             if self.active_task_mode == "read":
-                self._append_output(self.activity_output, "\nRepository question completed.\n")
+                self._append_output(
+                    self.activity_output,
+                    "\n---\nRoute: repository question (read-only)\n"
+                    "Action: inspect relevant repository files with local tools\n"
+                    "Repository question completed.\n",
+                )
                 self.footer_var.set("Repository answer completed.")
             else:
                 self._append_output(self.activity_output, "\nCode change completed. Review the Changes tab.\n")

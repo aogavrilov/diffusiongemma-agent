@@ -6306,6 +6306,70 @@ def context_markdown(data: dict[str, Any]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def deterministic_read_answer(repo: Path, task: str, data: dict[str, Any]) -> str:
+    """Turn retrieval-only context into a short user-facing repository answer."""
+    selected = [str(item) for item in data.get("selected_files", []) if item]
+    if not selected:
+        skip_dirs = {".git", ".venv", "__pycache__", "node_modules", "tmp", "temp", "scratch", ".codex_tmp"}
+        candidates: list[Path] = []
+        try:
+            for path in repo.rglob("*"):
+                if not path.is_file() or any(part in skip_dirs for part in path.relative_to(repo).parts):
+                    continue
+                if path.name.lower() in {"readme.md", "readme.rst", "readme.txt"}:
+                    candidates.insert(0, path)
+                elif path.suffix.lower() in {".py", ".js", ".ts", ".toml", ".yaml", ".yml", ".tex"}:
+                    candidates.append(path)
+                if len(candidates) >= 8:
+                    break
+        except OSError:
+            candidates = []
+        selected = [path.relative_to(repo).as_posix() for path in candidates[:6]]
+    overview = any(
+        marker in task.lower()
+        for marker in ("describe", "summarize", "overview", "what is in", "опиши", "проект", "обзор", "что в")
+    )
+    lines = ["Краткий обзор репозитория", "", f"Папка: `{repo}`"]
+    if overview:
+        preferred = next(
+            (item for item in selected if Path(item).name.lower() in {"readme.md", "readme.rst", "readme.txt"}),
+            None,
+        )
+        if preferred:
+            path = repo / preferred
+            try:
+                raw_lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+            except OSError:
+                raw_lines = []
+            heading = next((line.strip().lstrip("# ").strip() for line in raw_lines if line.strip().startswith("#")), "")
+            prose: list[str] = []
+            for raw in raw_lines:
+                text = raw.strip()
+                if not text or text.startswith("#") or text.startswith("```"):
+                    continue
+                if text.startswith(("- ", "* ", "> ", "`")):
+                    continue
+                prose.append(text)
+                if len(prose) >= 2:
+                    break
+            if heading:
+                lines.extend([f"Проект: **{heading}**", ""])
+            if prose:
+                lines.extend(prose + [""])
+            lines.append(f"Основной README: `{preferred}`")
+        else:
+            lines.append("README-файл не найден; описание составлено по найденным файлам.")
+        if selected:
+            lines.extend(["", "Релевантные файлы:"])
+            lines.extend(f"- `{item}`" for item in selected[:6])
+    else:
+        lines.extend(["", "Модель не сформировала краткий ответ, поэтому показан результат локального поиска."])
+        if selected:
+            lines.extend(["", "Релевантные файлы:"])
+            lines.extend(f"- `{item}`" for item in selected[:6])
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def run_context(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     if not repo.exists():
@@ -6610,7 +6674,12 @@ def usable_agent_read_answer(value: Any) -> bool:
     text = str(value or "").strip()
     if len(text) < 24:
         return False
-    return "<|channel>thought" not in text and "<|channel>analysis" not in text
+    lowered = text.lower()
+    if "<|channel>thought" in lowered or "<|channel>analysis" in lowered:
+        return False
+    if "deterministic dg_rag_context result" in lowered and "### selected file map" in lowered:
+        return False
+    return True
 
 
 def run_agent_read(args: argparse.Namespace, selected_mode: str) -> int:
@@ -6709,10 +6778,7 @@ def run_agent_read(args: argparse.Namespace, selected_mode: str) -> int:
         report["answer_mode"] = "retrieval_only"
         report["fallback_reason"] = "model did not produce a usable final answer or tool call"
         report["model_final_content"] = report.get("final_content", "")
-        report["final_content"] = (
-            "Reliable repository context (the model output was not used because it did not produce a usable final answer):\n\n"
-            + context_markdown(context)
-        )
+        report["final_content"] = deterministic_read_answer(repo, args.task, context)
         report["artifacts"].update(
             {
                 "deterministic_context_json": str(context_json),
