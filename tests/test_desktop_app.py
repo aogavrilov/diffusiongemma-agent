@@ -23,7 +23,8 @@ class DesktopAppTests(unittest.TestCase):
         }
         rows, compatible = summarize_doctor(payload)
         self.assertTrue(compatible)
-        self.assertEqual(len(rows), 8)
+        self.assertEqual(len(rows), 9)
+        self.assertFalse(next(row for row in rows if row["name"] == "local_weights")["required"])
         self.assertFalse(next(row for row in rows if row["name"] == "installed")["required"])
 
     def test_doctor_summary_fails_for_required_gpu_check(self) -> None:

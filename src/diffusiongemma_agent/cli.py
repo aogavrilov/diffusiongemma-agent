@@ -11,7 +11,7 @@ import sys
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Iterable
 
 from huggingface_hub import snapshot_download
 
@@ -26,6 +26,18 @@ GIB = 1024**3
 MIN_DOWNLOAD_FREE_GIB = 15
 RECOMMENDED_FREE_GIB = 30
 MIN_VRAM_MIB = 15_500
+MODEL_FILENAME = "diffusiongemma-26B-A4B-it-IQ3_M-from-Q4_K_M.gguf"
+MODEL_BYTES = 12_401_034_720
+DISCOVERY_MAX_DEPTH = 7
+DISCOVERY_SKIP_DIRS = {
+    ".git",
+    ".idea",
+    ".pytest_cache",
+    ".venv",
+    ".vscode",
+    "__pycache__",
+    "node_modules",
+}
 LICENSE_URLS = (
     "https://huggingface.co/google/diffusiongemma-26B-A4B-it",
     "https://docs.nvidia.com/cuda/eula/",
@@ -99,6 +111,214 @@ def free_disk_gib(path: Path) -> float:
     return shutil.disk_usage(disk_anchor(path)).free / GIB
 
 
+def compatible_model(path: Path) -> bool:
+    try:
+        return path.is_file() and path.suffix.lower() == ".gguf" and path.stat().st_size == MODEL_BYTES
+    except OSError:
+        return False
+
+
+def runtime_bundle_info(path: Path) -> dict[str, Any] | None:
+    root = path.expanduser()
+    manifest_path = root / "manifest.json"
+    manifest = read_json(manifest_path)
+    model_name = str(manifest.get("model") or MODEL_FILENAME)
+    model = root / "payload" / "models" / model_name
+    required = (
+        root / "Install-DiffusionGemmaAgent.ps1",
+        root / "dg.ps1",
+        manifest_path,
+        root / "payload" / "app" / "server.py",
+        root / "payload" / "bin" / "llama-diffusion-gemma-visual-server",
+        model,
+    )
+    if model_name != MODEL_FILENAME or not all(item.is_file() for item in required) or not compatible_model(model):
+        return None
+    return {
+        "kind": "runtime",
+        "runtime_dir": str(root.resolve()),
+        "model_file": str(model.resolve()),
+        "model_bytes": MODEL_BYTES,
+        "installed": (root / "installed.json").is_file(),
+        "revision": read_json(root / "runtime-index.json").get("revision"),
+    }
+
+
+def default_discovery_roots() -> list[Path]:
+    home = Path.home()
+    local_app_data = Path(os.environ.get("LOCALAPPDATA") or home / "AppData" / "Local")
+    configured = configured_runtime()[1]
+    values: list[Path | None] = [
+        configured,
+        state_dir() / "runtime",
+        Path(os.environ["DG_RUNTIME_DIR"]) if os.environ.get("DG_RUNTIME_DIR") else None,
+        Path.cwd(),
+    ]
+
+    downloads = home / "Downloads"
+    if downloads.is_dir():
+        values.extend([downloads, *downloads.glob("*"), *downloads.glob("*/dist/*")])
+        for pattern in (
+            "*.gguf",
+            "*/*.gguf",
+            "*/models/*.gguf",
+            "*/*/models/*.gguf",
+            "*/*/payload/models/*.gguf",
+            "*/dist/*/payload/models/*.gguf",
+        ):
+            values.extend(downloads.glob(pattern))
+
+    cwd_dist = Path.cwd() / "dist"
+    if cwd_dist.is_dir():
+        values.extend(cwd_dist.glob("*"))
+
+    hub_roots = [
+        Path(os.environ["HF_HUB_CACHE"]) if os.environ.get("HF_HUB_CACHE") else None,
+        (Path(os.environ["HF_HOME"]) / "hub") if os.environ.get("HF_HOME") else None,
+        home / ".cache" / "huggingface" / "hub",
+        local_app_data / "huggingface" / "hub",
+    ]
+    for hub in hub_roots:
+        if hub is None or not hub.is_dir():
+            continue
+        snapshots = list(hub.glob("models--*diffusiongemma*/snapshots/*"))
+        values.extend(snapshots)
+        for snapshot in snapshots:
+            values.extend((snapshot / "payload" / "models").glob("*.gguf"))
+
+    result: list[Path] = []
+    seen: set[str] = set()
+    for value in values:
+        if value is None:
+            continue
+        try:
+            resolved = value.expanduser().resolve()
+        except OSError:
+            continue
+        key = os.path.normcase(str(resolved))
+        if key not in seen and resolved.exists():
+            seen.add(key)
+            result.append(resolved)
+    return result
+
+
+def discover_runtime_candidates(roots: Iterable[Path] | None = None) -> list[dict[str, Any]]:
+    recursive = roots is not None
+    search_roots = list(roots) if recursive else default_discovery_roots()
+    candidates: dict[str, dict[str, Any]] = {}
+    for root_index, raw_root in enumerate(search_roots):
+        root = raw_root.expanduser()
+        if root.is_file():
+            if compatible_model(root):
+                key = os.path.normcase(str(root.resolve()))
+                score = 100 - root_index
+                if key not in candidates or score > int(candidates[key].get("score", 0)):
+                    candidates[key] = {
+                        "kind": "model",
+                        "runtime_dir": None,
+                        "model_file": str(root.resolve()),
+                        "model_bytes": MODEL_BYTES,
+                        "score": score,
+                    }
+            continue
+        if not root.is_dir():
+            continue
+        direct_bundle = runtime_bundle_info(root)
+        if direct_bundle:
+            direct_bundle["score"] = 1000 + (20 if direct_bundle["installed"] else 0) + (5 if direct_bundle["revision"] else 0) - root_index
+            candidates[os.path.normcase(direct_bundle["model_file"])] = direct_bundle
+
+        if not recursive:
+            for model in root.glob("*.gguf"):
+                if compatible_model(model):
+                    key = os.path.normcase(str(model.resolve()))
+                    if key not in candidates:
+                        candidates[key] = {
+                            "kind": "model",
+                            "runtime_dir": None,
+                            "model_file": str(model.resolve()),
+                            "model_bytes": MODEL_BYTES,
+                            "score": 100 - root_index,
+                        }
+            continue
+
+        try:
+            walker = os.walk(root, topdown=True, followlinks=False)
+            for current_value, directories, files in walker:
+                current = Path(current_value)
+                try:
+                    depth = len(current.relative_to(root).parts)
+                except ValueError:
+                    directories[:] = []
+                    continue
+                directories[:] = [
+                    name
+                    for name in directories
+                    if name.lower() not in DISCOVERY_SKIP_DIRS and not name.lower().startswith(".venv")
+                ]
+                if depth >= DISCOVERY_MAX_DEPTH:
+                    directories[:] = []
+                if "manifest.json" in files:
+                    bundle = runtime_bundle_info(current)
+                    if bundle:
+                        bundle["score"] = 1000 + (20 if bundle["installed"] else 0) + (5 if bundle["revision"] else 0) - root_index
+                        candidates[os.path.normcase(bundle["model_file"])] = bundle
+                for filename in files:
+                    if not filename.lower().endswith(".gguf"):
+                        continue
+                    model = current / filename
+                    if not compatible_model(model):
+                        continue
+                    key = os.path.normcase(str(model.resolve()))
+                    if key not in candidates:
+                        candidates[key] = {
+                            "kind": "model",
+                            "runtime_dir": None,
+                            "model_file": str(model.resolve()),
+                            "model_bytes": MODEL_BYTES,
+                            "score": 100 - root_index,
+                        }
+        except OSError:
+            continue
+    return sorted(candidates.values(), key=lambda item: (-int(item.get("score", 0)), str(item["model_file"]).lower()))
+
+
+def local_runtime_discovery(roots: Iterable[Path] | None = None) -> dict[str, Any]:
+    candidates = discover_runtime_candidates(roots)
+    public_candidates = [{key: value for key, value in item.items() if key != "score"} for item in candidates]
+    return {
+        "found": bool(public_candidates),
+        "best": public_candidates[0] if public_candidates else None,
+        "candidates": public_candidates,
+    }
+
+
+def stage_local_model(source: Path, destination: Path) -> tuple[Path, str]:
+    source = source.expanduser().resolve()
+    if not compatible_model(source):
+        raise RuntimeError(
+            f"Local model is incompatible: expected a {MODEL_BYTES}-byte DiffusionGemma IQ3 GGUF, got {source}"
+        )
+    target = destination / "payload" / "models" / MODEL_FILENAME
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        try:
+            if source.samefile(target):
+                return target, "existing"
+        except OSError:
+            pass
+        if compatible_model(target):
+            return target, "existing"
+        target.unlink()
+    try:
+        os.link(source, target)
+        return target, "hardlink"
+    except OSError:
+        print("The existing model is on another filesystem; copying it into the runtime directory.", flush=True)
+        shutil.copy2(source, target)
+        return target, "copy"
+
+
 def require_install_prerequisites(destination: Path) -> None:
     if platform.system() != "Windows":
         raise RuntimeError("This runtime currently supports Windows 10/11 with WSL2 only")
@@ -131,14 +351,22 @@ def install_runtime(args: argparse.Namespace) -> int:
     require_install_prerequisites(destination)
     destination.mkdir(parents=True, exist_ok=True)
     token = args.token or os.environ.get("HF_TOKEN") or None
-    print("This download is approximately 13.2 GB and may take a while.", flush=True)
-    print(f"Downloading {args.runtime_repo}@{args.revision} to {destination}", flush=True)
-    snapshot_download(
-        repo_id=args.runtime_repo,
-        revision=args.revision,
-        local_dir=destination,
-        token=token,
-        allow_patterns=[
+    existing_bundle = runtime_bundle_info(destination)
+    local_model = str(getattr(args, "model_file", "") or "")
+    if existing_bundle and not args.force_download:
+        print(f"Using complete local runtime: {destination}", flush=True)
+    else:
+        staged_model = False
+        if local_model:
+            target, method = stage_local_model(Path(local_model), destination)
+            staged_model = True
+            print(f"Using existing model via {method}: {target}", flush=True)
+        if staged_model:
+            print("Downloading only the missing runtime and agent files.", flush=True)
+        else:
+            print("This download is approximately 13.2 GB and may take a while.", flush=True)
+        print(f"Downloading {args.runtime_repo}@{args.revision} to {destination}", flush=True)
+        allow_patterns = [
             "README.md",
             "manifest.json",
             "runtime-index.json",
@@ -146,13 +374,22 @@ def install_runtime(args: argparse.Namespace) -> int:
             "Install-DiffusionGemmaAgent.ps1",
             "dg.ps1",
             "start-runtime.sh",
-            "payload/**",
-        ],
-        force_download=args.force_download,
-    )
+            "payload/app/**",
+            "payload/bin/**",
+        ]
+        if not staged_model:
+            allow_patterns.append("payload/models/**")
+        snapshot_download(
+            repo_id=args.runtime_repo,
+            revision=args.revision,
+            local_dir=destination,
+            token=token,
+            allow_patterns=allow_patterns,
+            force_download=args.force_download,
+        )
+    if not runtime_bundle_info(destination):
+        raise RuntimeError(f"Runtime snapshot is incomplete or incompatible: {destination}")
     installer = destination / "Install-DiffusionGemmaAgent.ps1"
-    if not installer.is_file():
-        raise RuntimeError(f"Runtime snapshot is incomplete: {installer} is missing")
     command = [powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(installer)]
     if args.wsl_root:
         command.extend(["-WslRoot", args.wsl_root])
@@ -194,6 +431,7 @@ def update_runtime(args: argparse.Namespace) -> int:
         accept_licenses=args.accept_licenses,
         force_download=args.force_download,
         no_start=args.no_start,
+        model_file="",
     )
     return install_runtime(install_args)
 
@@ -276,11 +514,35 @@ def hub_check() -> dict[str, Any]:
         return {"ok": False, "detail": str(exc)}
 
 
+def show_discovery(as_json: bool) -> int:
+    discovery = local_runtime_discovery()
+    if as_json:
+        print(json.dumps(discovery, ensure_ascii=False, indent=2))
+    elif discovery["found"]:
+        best = discovery["best"]
+        assert isinstance(best, dict)
+        print(f"found: {best['kind']}")
+        print(f"model: {best['model_file']}")
+        if best.get("runtime_dir"):
+            print(f"runtime directory: {best['runtime_dir']}")
+    else:
+        print("No compatible local DiffusionGemma IQ3 model was found.")
+    return 0 if discovery["found"] else 1
+
+
 def doctor(as_json: bool) -> int:
     wsl = wsl_executable()
     destination = state_dir() / "runtime"
     free_gib = free_disk_gib(destination)
     config, runtime = configured_runtime()
+    discovery = local_runtime_discovery()
+    best = discovery.get("best") if isinstance(discovery.get("best"), dict) else None
+    if best and best.get("kind") == "runtime":
+        local_detail = f"Complete runtime: {best['runtime_dir']}"
+    elif best:
+        local_detail = f"Compatible model: {best['model_file']}"
+    else:
+        local_detail = "no compatible local model found"
     checks: dict[str, dict[str, Any]] = {
         "windows": {"ok": platform.system() == "Windows", "detail": platform.platform()},
         "wsl": {"ok": bool(wsl), "detail": wsl or "WSL2 is not installed"},
@@ -289,6 +551,12 @@ def doctor(as_json: bool) -> int:
             "detail": f"{free_gib:.1f} GiB free; {RECOMMENDED_FREE_GIB} GiB recommended for a new install",
         },
         "runtime_download": hub_check(),
+        "local_weights": {
+            "ok": bool(best),
+            "detail": local_detail,
+            "required": False,
+            **(best or {}),
+        },
         "installed": {
             "ok": bool(runtime and runtime.is_dir()),
             "detail": str(runtime) if runtime else "not installed",
@@ -306,6 +574,7 @@ def doctor(as_json: bool) -> int:
     result = {
         "package_version": __version__,
         "runtime_revision": config.get("revision"),
+        "local_runtime_discovery": discovery,
         "checks": checks,
     }
     if as_json:
@@ -409,7 +678,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--version", action="version", version=__version__)
     sub = result.add_subparsers(dest="command", required=True, title="commands")
 
-    install = sub.add_parser("install", help="Download 13.2 GB and install the runtime into WSL2")
+    install = sub.add_parser("install", help="Find or download the 13.2 GB runtime and install it into WSL2")
     install.add_argument("--runtime-repo", default=DEFAULT_RUNTIME_REPO, help="Hugging Face model repo")
     install.add_argument("--revision", default=DEFAULT_REVISION, help="Immutable runtime tag or commit")
     install.add_argument("--local-dir", default="", help="Windows download directory (default: LocalAppData)")
@@ -418,6 +687,7 @@ def parser() -> argparse.ArgumentParser:
     install.add_argument("--accept-licenses", action="store_true", help="Confirm review of model and CUDA licenses")
     install.add_argument("--force-download", action="store_true", help="Re-download files even when cached")
     install.add_argument("--no-start", action="store_true", help="Install without starting backend and gateway")
+    install.add_argument("--model-file", default="", help="Reuse a compatible local IQ3 GGUF instead of downloading it")
 
     update = sub.add_parser("update", help="Update an existing runtime installation")
     update.add_argument("--runtime-repo", default="", help="Override the configured Hugging Face repo")
@@ -440,6 +710,8 @@ def parser() -> argparse.ArgumentParser:
     status_parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     doctor_parser = sub.add_parser("doctor", help="Check WSL2, GPU/VRAM, disk, network, and runtime state")
     doctor_parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
+    discover_parser = sub.add_parser("discover", help="Find compatible runtime files already present on this computer")
+    discover_parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     logs_parser = sub.add_parser("logs", help="Show recent backend and gateway logs")
     logs_parser.add_argument("--lines", type=int, default=80, help="Lines per log file (default: 80)")
     uninstall = sub.add_parser("uninstall", help="Remove the installed WSL runtime and configuration")
@@ -471,6 +743,8 @@ def main(argv: list[str] | None = None) -> int:
             return status(args.json)
         if args.command == "doctor":
             return doctor(args.json)
+        if args.command == "discover":
+            return show_discovery(args.json)
         if args.command == "logs":
             return show_logs(max(1, args.lines))
         if args.command == "uninstall":

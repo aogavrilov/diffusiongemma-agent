@@ -47,15 +47,17 @@ agent that is already wired together for 16 GB NVIDIA hardware.
 
 You do not need Python, a CUDA Toolkit, a compiler, or ML setup experience.
 
-1. [Download the standalone Windows installer](https://github.com/aogavrilov/diffusiongemma-agent/releases/download/desktop-v0.1.0/DiffusionGemmaAgentSetup-0.1.0.exe).
+1. [Download the standalone Windows installer](https://github.com/aogavrilov/diffusiongemma-agent/releases/download/desktop-v0.1.1/DiffusionGemmaAgentSetup-0.1.1.exe).
 2. Open **DiffusionGemma Agent** after installation.
 3. Let the app check Windows, WSL2, the GPU, VRAM, disk, and download access.
 4. Review the model and CUDA licenses and click **Download and install**.
 5. Choose a Git repository, enter one concrete task, and review the generated
    diff and test output in the app.
 
-The desktop app includes its own Python runtime. The separate 13.2 GB first-run
-download is resumable. The current alpha installer is not code-signed, so
+The desktop app includes its own Python runtime. It automatically reuses a
+compatible runtime or IQ3 GGUF already present in common download and Hugging
+Face cache folders. The separate 13.2 GB download, when needed, is resumable.
+The current alpha installer is not code-signed, so
 Windows may show an unknown-publisher warning; GitHub publishes its SHA-256
 checksum beside the download.
 

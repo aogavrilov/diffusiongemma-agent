@@ -18,7 +18,7 @@ from typing import Any, Callable
 from diffusiongemma_agent import __version__ as core_version
 
 
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.1.1"
 RUNTIME_SIZE = "13.2 GB"
 BG = "#f4f6f8"
 SURFACE = "#ffffff"
@@ -58,16 +58,18 @@ def summarize_doctor(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], boo
         "nvidia": "NVIDIA GPU and 16 GB VRAM",
         "disk": "Free disk space",
         "runtime_download": "Runtime download",
+        "local_weights": "Existing model files",
         "installed": "Local runtime",
         "backend": "Model service",
         "gateway": "Agent gateway",
     }
     checks = payload.get("checks") if isinstance(payload.get("checks"), dict) else {}
+    optional = {"local_weights", "installed", "backend", "gateway"}
     rows: list[dict[str, Any]] = []
     compatible = True
     for name in labels:
         raw = checks.get(name) if isinstance(checks.get(name), dict) else {}
-        required = bool(raw.get("required", True))
+        required = bool(raw.get("required", name not in optional))
         ok = bool(raw.get("ok"))
         if required and not ok:
             compatible = False
@@ -116,6 +118,9 @@ class AgentDesktop:
         self.repo_var = StringVar(value="")
         self.file_var = StringVar(value="")
         self.steps_var = StringVar(value="3")
+        self.existing_files_var = StringVar(value="Searching common download and Hugging Face cache folders...")
+        self.detected_model_file = ""
+        self.detected_runtime_dir = ""
 
         self._configure_styles()
         self._build_ui()
@@ -141,7 +146,11 @@ class AgentDesktop:
         style.configure("Muted.TLabel", background=SURFACE, foreground=MUTED, font=("Segoe UI", 9))
         style.configure("Status.TLabel", background=BG, foreground=MUTED, font=("Segoe UI Semibold", 9))
         style.configure("Accent.TButton", font=("Segoe UI Semibold", 10), padding=(16, 8))
-        style.map("Accent.TButton", foreground=[("!disabled", "#ffffff")], background=[("!disabled", ACCENT), ("active", ACCENT_ACTIVE)])
+        style.map(
+            "Accent.TButton",
+            foreground=[("disabled", MUTED), ("!disabled", "#ffffff")],
+            background=[("!disabled", ACCENT), ("active", ACCENT_ACTIVE)],
+        )
         style.configure("Command.TButton", font=("Segoe UI", 9), padding=(11, 6))
         style.configure("TNotebook", background=BG, borderwidth=0)
         style.configure("TNotebook.Tab", font=("Segoe UI Semibold", 10), padding=(18, 8))
@@ -200,7 +209,8 @@ class AgentDesktop:
         ttk.Label(
             self.setup_tab,
             text=(
-                "The installer checks your PC, downloads the 13.2 GB model runtime, and configures WSL2. "
+                "The installer checks your PC, reuses compatible files already on disk or downloads the model runtime, "
+                "and configures WSL2. "
                 "No separate Python or CUDA Toolkit installation is required."
             ),
             style="Body.TLabel",
@@ -230,6 +240,7 @@ class AgentDesktop:
                 ("nvidia", "NVIDIA GPU and 16 GB VRAM"),
                 ("disk", "Free disk space"),
                 ("runtime_download", "Runtime download"),
+                ("local_weights", "Existing model files"),
                 ("installed", "Local runtime"),
             ]
         ):
@@ -260,9 +271,17 @@ class AgentDesktop:
         path_row = ttk.Frame(self.setup_tab, style="Surface.TFrame")
         path_row.grid(row=9, column=0, sticky="ew", pady=(2, 10))
         path_row.columnconfigure(1, weight=1)
-        ttk.Label(path_row, text="Download location", style="Body.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10))
+        ttk.Label(path_row, text="Runtime files", style="Body.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10))
         ttk.Entry(path_row, textvariable=self.cache_var).grid(row=0, column=1, sticky="ew")
         ttk.Button(path_row, text="Browse", style="Command.TButton", command=self.choose_cache).grid(row=0, column=2, padx=(8, 0))
+        ttk.Label(path_row, text="Auto-detected", style="Muted.TLabel").grid(row=1, column=0, sticky="nw", pady=(5, 0))
+        ttk.Label(
+            path_row,
+            textvariable=self.existing_files_var,
+            style="Muted.TLabel",
+            wraplength=700,
+            justify=LEFT,
+        ).grid(row=1, column=1, columnspan=2, sticky="ew", pady=(5, 0))
 
         install_row = ttk.Frame(self.setup_tab, style="Surface.TFrame")
         install_row.grid(row=10, column=0, sticky="ew")
@@ -485,6 +504,7 @@ class AgentDesktop:
             self._update_install_button()
             return
         self.preflight_ok = compatible
+        local_weights: dict[str, Any] = {}
         for row in rows:
             widgets = self.check_widgets.get(row["name"])
             if not widgets:
@@ -497,6 +517,26 @@ class AgentDesktop:
             else:
                 self._set_marker(marker, "--", MUTED)
             detail.set(row["detail"])
+            if row["name"] == "local_weights":
+                checks = payload.get("checks") if isinstance(payload.get("checks"), dict) else {}
+                raw_local = checks.get("local_weights") if isinstance(checks.get("local_weights"), dict) else {}
+                local_weights = raw_local
+        if local_weights.get("ok"):
+            self.detected_model_file = str(local_weights.get("model_file") or "")
+            detected_runtime = str(local_weights.get("runtime_dir") or "")
+            self.detected_runtime_dir = detected_runtime
+            if detected_runtime:
+                self.cache_var.set(detected_runtime)
+                self.existing_files_var.set(f"Complete compatible runtime found: {detected_runtime}")
+                self.install_button.configure(text="Install using existing files")
+            else:
+                self.existing_files_var.set(f"Compatible model found: {self.detected_model_file}")
+                self.install_button.configure(text="Reuse existing model and install")
+        else:
+            self.detected_model_file = ""
+            self.detected_runtime_dir = ""
+            self.existing_files_var.set("No compatible local files found; the runtime will be downloaded.")
+            self.install_button.configure(text=f"Download and install ({RUNTIME_SIZE})")
         self.setup_status_var.set("This computer is compatible." if compatible else "Resolve the failed requirements before installing.")
         self._update_install_button()
         self.root.after(150, self.refresh_service)
@@ -526,15 +566,25 @@ class AgentDesktop:
         if not self.preflight_ok:
             messagebox.showwarning("Compatibility", "Run the computer check and resolve all failed requirements first.")
             return
-        if not messagebox.askokcancel(
-            "Download and install",
-            f"The download is approximately {RUNTIME_SIZE} and the WSL2 installation needs additional disk space. Continue?",
-        ):
+        if self.detected_runtime_dir:
+            confirmation = "Use the detected local runtime and install it into WSL2? The 13.2 GB model download will be skipped."
+            operation_label = "Installing the local agent from existing files"
+        elif self.detected_model_file:
+            confirmation = "Reuse the detected local model and download only missing runtime files before installing into WSL2?"
+            operation_label = "Reusing the existing model and installing the local agent"
+        else:
+            confirmation = (
+                f"The download is approximately {RUNTIME_SIZE} and the WSL2 installation needs additional disk space. Continue?"
+            )
+            operation_label = "Downloading and installing the local agent"
+        if not messagebox.askokcancel("Install local agent", confirmation):
             return
         arguments = ["install", "--accept-licenses", "--local-dir", self.cache_var.get()]
+        if self.detected_model_file:
+            arguments.extend(["--model-file", self.detected_model_file])
         self._start_command(
             arguments,
-            label="Downloading and installing the local agent",
+            label=operation_label,
             output=self.setup_output,
             on_complete=self._install_finished,
         )

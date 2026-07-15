@@ -8,14 +8,14 @@ SetCompressor /SOLID lzma
   !error "APP_SOURCE must point to the PyInstaller application directory"
 !endif
 !ifndef OUTPUT_FILE
-  !define OUTPUT_FILE "DiffusionGemmaAgentSetup-0.1.0.exe"
+  !define OUTPUT_FILE "DiffusionGemmaAgentSetup-0.1.1.exe"
 !endif
 !ifndef REPO_ROOT
   !define REPO_ROOT ".."
 !endif
 
 !define APP_NAME "DiffusionGemma Agent"
-!define APP_VERSION "0.1.0"
+!define APP_VERSION "0.1.1"
 !define APP_PUBLISHER "DiffusionGemma Agent contributors"
 !define APP_URL "https://github.com/aogavrilov/diffusiongemma-agent"
 !define APP_REGKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiffusionGemmaAgent"
@@ -27,7 +27,7 @@ InstallDirRegKey HKCU "${APP_REGKEY}" "InstallLocation"
 RequestExecutionLevel user
 ShowInstDetails show
 ShowUninstDetails show
-VIProductVersion "0.1.0.0"
+VIProductVersion "0.1.1.0"
 VIAddVersionKey /LANG=1033 "ProductName" "${APP_NAME}"
 VIAddVersionKey /LANG=1033 "ProductVersion" "${APP_VERSION}"
 VIAddVersionKey /LANG=1033 "FileDescription" "DiffusionGemma Agent Windows installer"

@@ -32,15 +32,17 @@ a large-context cloud agent on broad, ambiguous repository-wide work.
 
 No Python, CUDA Toolkit, compiler, or command line is required.
 
-1. [Download DiffusionGemmaAgentSetup-0.1.0.exe](https://github.com/aogavrilov/diffusiongemma-agent/releases/download/desktop-v0.1.0/DiffusionGemmaAgentSetup-0.1.0.exe).
+1. [Download DiffusionGemmaAgentSetup-0.1.1.exe](https://github.com/aogavrilov/diffusiongemma-agent/releases/download/desktop-v0.1.1/DiffusionGemmaAgentSetup-0.1.1.exe).
 2. Open the installer, then launch **DiffusionGemma Agent**.
 3. The app checks Windows, WSL2, the NVIDIA GPU, VRAM, disk space, and runtime
    access automatically.
 4. Review the model and CUDA licenses, click **Download and install**, then
    choose a Git repository and describe the change you want.
 
-The Windows app includes its own Python runtime. The first setup still
-downloads approximately 13.2 GB of model and CUDA files; plan for at least
+The Windows app includes its own Python runtime. Setup automatically reuses a
+compatible runtime or IQ3 GGUF already present in common download and Hugging
+Face cache folders. Otherwise it downloads approximately 13.2 GB of model and
+CUDA files; plan for at least
 30 GiB of free disk space. The current alpha installer is not code-signed, so
 Windows may display an unknown-publisher warning. Its checksum is published
 with the GitHub release.
@@ -125,6 +127,7 @@ output before committing it.
 | Command | Purpose |
 | --- | --- |
 | `dg-agent doctor` | Check WSL2, NVIDIA GPU/VRAM, disk, network, and install state |
+| `dg-agent discover` | Find a compatible runtime or IQ3 GGUF already on disk |
 | `dg-agent install --accept-licenses` | Download and install the pinned runtime |
 | `dg-agent status` | Show package, runtime revision, backend, and gateway state |
 | `dg-agent start` | Start the backend and gateway |

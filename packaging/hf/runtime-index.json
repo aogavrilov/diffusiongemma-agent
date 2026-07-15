@@ -6,5 +6,5 @@
   "cuda_runtime": "13",
   "profile": "iq3_fullgpu_fast",
   "minimum_vram_gib": 16,
-  "pypi_package": "diffusiongemma-agent>=0.1.1,<0.2.0"
+  "pypi_package": "diffusiongemma-agent>=0.1.2,<0.2.0"
 }

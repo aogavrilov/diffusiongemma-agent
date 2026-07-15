@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2 - 2026-07-15
+
+- Added automatic discovery of compatible runtime bundles and standalone IQ3
+  GGUF files in common Windows download and Hugging Face cache locations.
+- Reuse complete local bundles without downloading and stage standalone model
+  files with an NTFS hardlink when possible.
+- Show the detected model source and reuse mode in desktop setup.
+
 ## 0.1.1 - 2026-07-15
 
 - Added a standalone Windows desktop app and NSIS installer that do not require
