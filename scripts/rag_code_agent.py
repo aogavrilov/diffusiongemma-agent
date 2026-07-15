@@ -364,7 +364,18 @@ def build_context(repo: Path, task: str, max_context_chars: int, max_files: int,
     ranked = sorted(scores.items(), key=lambda item: (-item[1].score, item[0].as_posix()))[:max_files]
     overview = any(
         marker in task.lower()
-        for marker in ("describe", "summarize", "overview", "what is in", "опиши", "обзор", "что в")
+        for marker in (
+            "describe",
+            "summarize",
+            "overview",
+            "what is in",
+            "what is this",
+            "опиши",
+            "обзор",
+            "что в",
+            "что это",
+            "проект",
+        )
     )
     if overview:
         preferred_names = {"readme.md", "readme.rst", "pyproject.toml", "package.json", "cargo.toml", "main.py", "index.py"}
