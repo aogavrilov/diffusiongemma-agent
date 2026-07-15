@@ -64,7 +64,8 @@ class PackageCliTests(unittest.TestCase):
             (root / "tmp").mkdir()
             (root / "tmp" / "irrelevant.md").write_text("temporary notes", encoding="utf-8")
 
-            context = build_context(root, "опиши, что в этом репо", 2000, 3)
+            with patch("scripts.rag_code_agent.rg_available", return_value=False):
+                context = build_context(root, "опиши, что в этом репо", 2000, 3)
 
             self.assertIn("README.md", context)
             self.assertNotIn("irrelevant.md", context)
