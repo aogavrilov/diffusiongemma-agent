@@ -12,14 +12,38 @@ tags:
   - wsl
 ---
 
-# DiffusionGemma Agent IQ3 CUDA 13 Runtime
+# Run DiffusionGemma as a local coding agent on a 16 GB GPU
 
-Versioned model and runtime files for
-[`diffusiongemma-agent`](https://pypi.org/project/diffusiongemma-agent/). This
-repository is consumed by the small Windows CLI; it is not a Transformers
-pipeline and is not an official Google or NVIDIA distribution.
+This is a ready-to-run DiffusionGemma stack for Windows + WSL2. It turns the
+26B-A4B model into a repository-aware coding agent on a single 16 GB NVIDIA
+GPU, without requiring you to compile llama.cpp, convert weights, assemble
+CUDA libraries, or build an agent wrapper yourself.
 
-## Install
+This release contains more than a quantized GGUF:
+
+- an IQ3 model profile that fits entirely in 16 GB VRAM;
+- a matched custom llama.cpp/CUDA backend for DiffusionGemma;
+- pinned CUDA 13 runtime libraries and launch settings;
+- repository retrieval instead of sending the whole codebase to the model;
+- focused file editing through Aider, automatic tests, session artifacts, and
+  rollback when validation fails;
+- a localhost OpenAI-compatible endpoint for supported coding clients.
+
+## Why use this instead of a standalone quantization?
+
+| Standalone GGUF | This runtime |
+| --- | --- |
+| Supplies model weights | Supplies a tested model, backend, CUDA runtime, and agent workflow |
+| Requires finding a compatible DiffusionGemma runner | Includes the exact custom backend used by the release |
+| Requires manual offload, memory, and launch tuning | Ships a full-GPU preset tested on a 16 GB RTX 3080 Laptop GPU |
+| Primarily provides raw generation/chat | Searches a repository, edits focused files, runs tests, and records results |
+| Leaves integration and reproducibility to the user | Installs and operates through one versioned CLI |
+
+Use another GGUF if you only need weights or want to assemble your own
+inference stack. Use this release when you want a reproducible local coding
+agent that is already wired together for 16 GB NVIDIA hardware.
+
+## Quick start
 
 Run in Windows PowerShell:
 
@@ -37,6 +61,21 @@ dg-agent run --repo C:\work\repo --task "Fix src/x.py and run its tests" --file 
 ```
 
 Stop the service and release GPU memory with `dg-agent stop`.
+
+## What a task looks like
+
+```text
+your request
+  -> bounded repository search
+  -> focused edit session
+  -> detected tests and verification
+  -> final diff and saved session artifacts
+  -> rollback if validation fails
+```
+
+This works best for concrete file-level changes, focused bug fixes, and tests.
+It is not intended to replace a large-context cloud agent for broad,
+underspecified repository-wide work.
 
 ## Hardware and storage
 
@@ -73,6 +112,11 @@ calls are disabled in the default route.
 A short warmed probe measured approximately 19.6 words/s on the tested RTX
 3080 Laptop 16 GB. Full agent tasks are slower because retrieval, diffusion
 passes, edits, and tests add latency. This is not a performance guarantee.
+
+## Status and scope
+
+This is alpha, hardware-specific software. It is not an official Google,
+NVIDIA, Hugging Face, Aider, or upstream llama.cpp distribution.
 
 ## Safety
 

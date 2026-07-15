@@ -1,9 +1,15 @@
 # DiffusionGemma Agent
 
-Run a local DiffusionGemma coding agent on a 16 GB NVIDIA GPU from Windows and
-WSL2. The package combines a quantized 26B-A4B model, a custom full-GPU
-llama.cpp backend, bounded repository retrieval, Aider-compatible editing,
-automatic test execution, and rollback on failed sessions.
+Turn a single 16 GB NVIDIA GPU into a local, repository-aware DiffusionGemma
+coding agent. This package provides the complete matched stack: an IQ3
+26B-A4B model, custom full-GPU llama.cpp/CUDA backend, bounded repository
+retrieval, Aider-compatible editing, automatic tests, and rollback on failed
+sessions.
+
+Unlike a standalone GGUF, it does not stop at model weights. The versioned
+runtime includes the backend, CUDA libraries, launch profile, localhost API,
+and agent workflow needed to install the system on Windows + WSL2 and run a
+focused repository task without compiling or wiring those components by hand.
 
 > **Alpha software.** This is a hardware-specific experimental runtime, not an
 > official Google, NVIDIA, Hugging Face, Aider, or llama.cpp distribution.
