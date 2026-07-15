@@ -165,7 +165,7 @@ class PackageCliTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(), source.read_bytes())
 
     def test_version_is_semver_like(self) -> None:
-        self.assertEqual(__version__, "0.1.2")
+        self.assertEqual(__version__, "0.1.3")
 
 
 if __name__ == "__main__":

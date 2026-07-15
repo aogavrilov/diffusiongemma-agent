@@ -32,7 +32,7 @@ a large-context cloud agent on broad, ambiguous repository-wide work.
 
 No Python, CUDA Toolkit, compiler, or command line is required.
 
-1. [Download DiffusionGemmaAgentSetup-0.1.1.exe](https://github.com/aogavrilov/diffusiongemma-agent/releases/download/desktop-v0.1.1/DiffusionGemmaAgentSetup-0.1.1.exe).
+1. [Download DiffusionGemmaAgentSetup-0.1.2.exe](https://github.com/aogavrilov/diffusiongemma-agent/releases/download/desktop-v0.1.2/DiffusionGemmaAgentSetup-0.1.2.exe).
 2. Open the installer, then launch **DiffusionGemma Agent**.
 3. The app checks Windows, WSL2, the NVIDIA GPU, VRAM, disk space, and runtime
    access automatically.
@@ -89,7 +89,7 @@ dg-agent stop
 | Network | Required for PyPI, Hugging Face, and WSL Python dependencies during install |
 
 CPU-only execution, native Linux installation, macOS, AMD GPUs, and GPUs below
-16 GB VRAM are not supported by release `0.1.1`.
+16 GB VRAM are not supported by the current release.
 
 ## What installation changes
 

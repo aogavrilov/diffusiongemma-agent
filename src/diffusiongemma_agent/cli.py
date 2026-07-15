@@ -19,7 +19,7 @@ from . import __version__
 
 
 DEFAULT_RUNTIME_REPO = os.environ.get("DG_RUNTIME_REPO", "aogavrilov/diffusiongemma-agent-iq3-cuda13")
-DEFAULT_REVISION = os.environ.get("DG_RUNTIME_REVISION", "v0.1.1-cu13-iq3")
+DEFAULT_REVISION = os.environ.get("DG_RUNTIME_REVISION", "v0.1.2-cu13-iq3")
 BACKEND_HEALTH_URL = "http://127.0.0.1:4100/healthz"
 GATEWAY_HEALTH_URL = "http://127.0.0.1:8090/healthz"
 GIB = 1024**3

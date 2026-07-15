@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$WslSourceRoot = '/root/diffusiongemma-agent',
+    [string]$WslPythonRoot = '/root/diffusiongemma-agent/.tools/cpython-3.12.13',
     [string]$OutputDirectory = '',
     [switch]$Archive
 )
@@ -12,7 +13,7 @@ $out = [IO.Path]::GetFullPath($OutputDirectory)
 $modelName = 'diffusiongemma-26B-A4B-it-IQ3_M-from-Q4_K_M.gguf'
 if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) { throw 'WSL2 is required to build the portable bundle.' }
 if (Test-Path $out) { Remove-Item -LiteralPath $out -Recurse -Force }
-New-Item -ItemType Directory -Force -Path "$out\payload\app", "$out\payload\bin", "$out\payload\models" | Out-Null
+New-Item -ItemType Directory -Force -Path "$out\payload\app", "$out\payload\bin", "$out\payload\models", "$out\payload\python" | Out-Null
 
 Copy-Item -Recurse -Force "$repo\scripts" "$out\payload\app\scripts"
 Copy-Item -Recurse -Force "$repo\configs" "$out\payload\app\configs"
@@ -32,6 +33,8 @@ set -euo pipefail
 cp -a '$source/server.py' '$dest/payload/app/server.py'
 cp -a '$source/models/diffusiongemma/$modelName' '$dest/payload/models/$modelName'
 cp -a '$source/llama.cpp-diffusion/build-gcc14-compat/bin/.' '$dest/payload/bin/'
+test -x '$WslPythonRoot/bin/python3.12'
+tar -C '$WslPythonRoot' -czf '$dest/payload/python/cpython-3.12.13.tar.gz' .
 cp -L /usr/local/cuda/targets/x86_64-linux/lib/libcudart.so.13 '$dest/payload/bin/libcudart.so.13'
 cp -L /usr/local/cuda/targets/x86_64-linux/lib/libcublas.so.13 '$dest/payload/bin/libcublas.so.13'
 cp -L /usr/local/cuda/targets/x86_64-linux/lib/libcublasLt.so.13 '$dest/payload/bin/libcublasLt.so.13'

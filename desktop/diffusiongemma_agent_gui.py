@@ -18,7 +18,7 @@ from typing import Any, Callable
 from diffusiongemma_agent import __version__ as core_version
 
 
-APP_VERSION = "0.1.1"
+APP_VERSION = "0.1.2"
 RUNTIME_SIZE = "13.2 GB"
 BG = "#f4f6f8"
 SURFACE = "#ffffff"

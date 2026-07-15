@@ -20,21 +20,23 @@ function Test-Healthy([string]$Url) {
     try { return [bool](Invoke-RestMethod -Uri $Url -TimeoutSec 3).ok } catch { return $false }
 }
 
+function Start-WslComponent([string]$Name) {
+    $script = "$wslRoot/scripts/run_runtime_component.sh"
+    Start-Process -FilePath wsl.exe -ArgumentList @('--exec', $script, $Name) -WindowStyle Hidden | Out-Null
+}
+
 if ($Stop) {
-    & wsl.exe --exec bash -lc "pkill -f '$wslRoot/server.py' || true; pkill -f '$wslRoot/scripts/aider_dg_proxy.py' || true"
-    exit $LASTEXITCODE
+    & wsl.exe --exec pkill -f -- "$wslRoot/server.py"
+    & wsl.exe --exec pkill -f -- "$wslRoot/scripts/aider_dg_proxy.py"
+    exit 0
 }
 if (-not (Test-Healthy $backend)) {
-    $cmd = "cd '$wslRoot' && nohup ./start-runtime.sh >runtime/backend.out.log 2>runtime/backend.err.log &"
-    $arguments = "--exec bash -lc `"$cmd`""
-    Start-Process -FilePath wsl.exe -ArgumentList $arguments -WindowStyle Hidden | Out-Null
+    Start-WslComponent 'backend'
     for ($i = 0; $i -lt 180; $i++) { if (Test-Healthy $backend) { break }; Start-Sleep -Seconds 2 }
 }
 if (-not (Test-Healthy $backend)) { throw "Backend did not start. See $wslRoot/runtime/backend.err.log in WSL." }
 if (-not (Test-Healthy $gateway)) {
-    $cmd = "cd '$wslRoot' && DG_AGENT_PYTHON='$wslRoot/.venv-runtime/bin/python' DG_AIDER_PYTHON='$wslRoot/.venv-runtime/bin/python' nohup ./scripts/run_agent_gateway_wsl.sh >runtime/gateway.out.log 2>runtime/gateway.err.log &"
-    $arguments = "--exec bash -lc `"$cmd`""
-    Start-Process -FilePath wsl.exe -ArgumentList $arguments -WindowStyle Hidden | Out-Null
+    Start-WslComponent 'gateway'
     for ($i = 0; $i -lt 30; $i++) { if (Test-Healthy $gateway) { break }; Start-Sleep -Seconds 1 }
 }
 if (-not (Test-Healthy $gateway)) { throw "Gateway did not start. See $wslRoot/runtime/gateway.err.log in WSL." }

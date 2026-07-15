@@ -16,12 +16,12 @@ VSVersionInfo(
         [
           StringStruct(u'CompanyName', u'DiffusionGemma Agent contributors'),
           StringStruct(u'FileDescription', u'DiffusionGemma Agent Desktop'),
-          StringStruct(u'FileVersion', u'0.1.1'),
+          StringStruct(u'FileVersion', u'0.1.2'),
           StringStruct(u'InternalName', u'DiffusionGemmaAgent'),
           StringStruct(u'LegalCopyright', u'Apache-2.0'),
           StringStruct(u'OriginalFilename', u'DiffusionGemmaAgent.exe'),
           StringStruct(u'ProductName', u'DiffusionGemma Agent'),
-          StringStruct(u'ProductVersion', u'0.1.1')
+          StringStruct(u'ProductVersion', u'0.1.2')
         ]
       )
     ]),
