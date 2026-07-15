@@ -18,7 +18,7 @@ from typing import Any, Callable
 from diffusiongemma_agent import __version__ as core_version
 
 
-APP_VERSION = "0.1.2"
+APP_VERSION = "0.1.3"
 RUNTIME_SIZE = "13.2 GB"
 BG = "#f4f6f8"
 SURFACE = "#ffffff"
@@ -85,6 +85,28 @@ def summarize_doctor(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], boo
     return rows, compatible
 
 
+def setup_summary(rows: list[dict[str, Any]]) -> tuple[str, str]:
+    failed = [str(row["label"]) for row in rows if row["required"] and not row["ok"]]
+    if failed:
+        return "This computer needs attention", "Required: " + ", ".join(failed) + "."
+    installed = next((row for row in rows if row["name"] == "installed"), None)
+    if installed and installed["ok"]:
+        return "The agent is installed", "Open the Agent tab to choose a repository and run a task."
+    local = next((row for row in rows if row["name"] == "local_weights"), None)
+    if local and local["ok"]:
+        return "Ready to install", "Compatible files were found on this computer and will be reused."
+    return "Ready to install", f"The required runtime download is approximately {RUNTIME_SIZE}."
+
+
+def concise_error(output: str) -> str:
+    ignored = ("+", "CategoryInfo", "FullyQualifiedErrorId", "At ", "Traceback")
+    for line in reversed(output.splitlines()):
+        value = line.strip()
+        if value and not value.startswith(ignored):
+            return value[:300]
+    return "Open Diagnostics for technical details."
+
+
 def hidden_process_flags() -> dict[str, Any]:
     if platform.system() != "Windows":
         return {}
@@ -97,8 +119,8 @@ class AgentDesktop:
     def __init__(self, root: Tk, *, startup_checks: bool = True) -> None:
         self.root = root
         self.root.title("DiffusionGemma Agent")
-        self.root.geometry("1040x860")
-        self.root.minsize(900, 760)
+        self.root.geometry("960x720")
+        self.root.minsize(820, 620)
         self.root.configure(bg=BG)
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
@@ -107,12 +129,17 @@ class AgentDesktop:
         self.busy = False
         self.active_label = ""
         self.preflight_ok = False
+        self.runtime_installed = False
         self.service_ready = False
         self.last_diff = ""
+        self.setup_options_visible = False
+        self.task_options_visible = False
 
         self.status_var = StringVar(value="Not checked")
         self.footer_var = StringVar(value="Ready")
-        self.setup_status_var = StringVar(value="Check this computer before installing.")
+        self.setup_status_var = StringVar(value="Checking this computer...")
+        self.setup_detail_var = StringVar(value="This takes a few seconds.")
+        self.diagnostics_summary_var = StringVar(value="Service status has not been checked.")
         self.cache_var = StringVar(value=str(self.default_cache_path()))
         self.license_var = BooleanVar(value=False)
         self.repo_var = StringVar(value="")
@@ -139,16 +166,17 @@ class AgentDesktop:
             style.theme_use("vista")
         style.configure("App.TFrame", background=BG)
         style.configure("Surface.TFrame", background=SURFACE)
-        style.configure("Header.TLabel", background=BG, foreground=TEXT, font=("Segoe UI Semibold", 21))
+        style.configure("Header.TLabel", background=BG, foreground=TEXT, font=("Segoe UI Semibold", 19))
         style.configure("Subtitle.TLabel", background=BG, foreground=MUTED, font=("Segoe UI", 10))
         style.configure("Section.TLabel", background=SURFACE, foreground=TEXT, font=("Segoe UI Semibold", 13))
+        style.configure("SetupStatus.TLabel", background=SURFACE, foreground=TEXT, font=("Segoe UI Semibold", 16))
         style.configure("Body.TLabel", background=SURFACE, foreground=TEXT, font=("Segoe UI", 10))
         style.configure("Muted.TLabel", background=SURFACE, foreground=MUTED, font=("Segoe UI", 9))
         style.configure("Status.TLabel", background=BG, foreground=MUTED, font=("Segoe UI Semibold", 9))
         style.configure("Accent.TButton", font=("Segoe UI Semibold", 10), padding=(16, 8))
         style.map(
             "Accent.TButton",
-            foreground=[("disabled", MUTED), ("!disabled", "#ffffff")],
+            foreground=[("disabled", MUTED), ("!disabled", TEXT)],
             background=[("!disabled", ACCENT), ("active", ACCENT_ACTIVE)],
         )
         style.configure("Command.TButton", font=("Segoe UI", 9), padding=(11, 6))
@@ -157,7 +185,7 @@ class AgentDesktop:
         style.configure("TEntry", padding=6)
 
     def _build_ui(self) -> None:
-        header = ttk.Frame(self.root, style="App.TFrame", padding=(24, 18, 24, 12))
+        header = ttk.Frame(self.root, style="App.TFrame", padding=(24, 16, 24, 10))
         header.pack(fill=X)
         header.columnconfigure(0, weight=1)
         title_area = ttk.Frame(header, style="App.TFrame")
@@ -165,7 +193,7 @@ class AgentDesktop:
         ttk.Label(title_area, text="DiffusionGemma Agent", style="Header.TLabel").pack(anchor="w")
         ttk.Label(
             title_area,
-            text="Run a private, repository-aware coding agent on your 16 GB NVIDIA GPU.",
+            text="Private local coding agent",
             style="Subtitle.TLabel",
             wraplength=600,
             justify=LEFT,
@@ -177,170 +205,140 @@ class AgentDesktop:
         self.status_dot.insert("1.0", "o")
         self.status_dot.configure(state="disabled", font=("Segoe UI", 11))
         self.status_dot.pack(side=LEFT, padx=(0, 5))
-        ttk.Label(service_area, textvariable=self.status_var, style="Status.TLabel").pack(side=LEFT, padx=(0, 12))
-        ttk.Button(service_area, text="Start", style="Command.TButton", command=self.start_service).pack(side=LEFT, padx=3)
-        ttk.Button(service_area, text="Stop", style="Command.TButton", command=self.stop_service).pack(side=LEFT, padx=3)
+        ttk.Label(service_area, textvariable=self.status_var, style="Status.TLabel").pack(side=LEFT)
 
         ttk.Separator(self.root).pack(fill=X)
         self.notebook = ttk.Notebook(self.root)
-        self.notebook.pack(fill=BOTH, expand=True, padx=18, pady=(14, 8))
-        self.setup_tab = ttk.Frame(self.notebook, style="Surface.TFrame", padding=22)
-        self.agent_tab = ttk.Frame(self.notebook, style="Surface.TFrame", padding=22)
-        self.service_tab = ttk.Frame(self.notebook, style="Surface.TFrame", padding=22)
+        self.notebook.pack(fill=BOTH, expand=True, padx=18, pady=(12, 6))
+        self.setup_tab = ttk.Frame(self.notebook, style="Surface.TFrame", padding=26)
+        self.agent_tab = ttk.Frame(self.notebook, style="Surface.TFrame", padding=26)
+        self.service_tab = ttk.Frame(self.notebook, style="Surface.TFrame", padding=26)
         self.notebook.add(self.setup_tab, text="Setup")
         self.notebook.add(self.agent_tab, text="Agent")
-        self.notebook.add(self.service_tab, text="Service and logs")
+        self.notebook.add(self.service_tab, text="Diagnostics")
         self._build_setup_tab()
         self._build_agent_tab()
         self._build_service_tab()
 
-        footer = ttk.Frame(self.root, style="App.TFrame", padding=(24, 4, 24, 12))
+        footer = ttk.Frame(self.root, style="App.TFrame", padding=(24, 3, 24, 10))
         footer.pack(fill=X)
         ttk.Label(footer, textvariable=self.footer_var, style="Subtitle.TLabel").pack(side=LEFT)
-        ttk.Label(
-            footer,
-            text=f"Desktop {APP_VERSION} | Core {core_version}",
-            style="Subtitle.TLabel",
-        ).pack(side=RIGHT)
 
     def _build_setup_tab(self) -> None:
         self.setup_tab.columnconfigure(0, weight=1)
-        ttk.Label(self.setup_tab, text="Set up the local agent", style="Section.TLabel").grid(row=0, column=0, sticky="w")
+        status_area = ttk.Frame(self.setup_tab, style="Surface.TFrame")
+        status_area.grid(row=0, column=0, sticky="ew", pady=(4, 18))
+        status_area.columnconfigure(1, weight=1)
+        self.setup_marker = Text(status_area, width=2, height=1, borderwidth=0, background=SURFACE, foreground=MUTED)
+        self.setup_marker.insert("1.0", "-")
+        self.setup_marker.configure(state="disabled", font=("Segoe UI Semibold", 14))
+        self.setup_marker.grid(row=0, column=0, rowspan=2, sticky="nw", padx=(0, 8), pady=2)
+        ttk.Label(status_area, textvariable=self.setup_status_var, style="SetupStatus.TLabel").grid(row=0, column=1, sticky="w")
         ttk.Label(
-            self.setup_tab,
-            text=(
-                "The installer checks your PC, reuses compatible files already on disk or downloads the model runtime, "
-                "and configures WSL2. "
-                "No separate Python or CUDA Toolkit installation is required."
-            ),
+            status_area,
+            textvariable=self.setup_detail_var,
             style="Body.TLabel",
-            wraplength=760,
+            wraplength=700,
             justify=LEFT,
-        ).grid(row=1, column=0, sticky="ew", pady=(5, 14))
+        ).grid(row=1, column=1, sticky="ew", pady=(5, 0))
 
-        top_actions = ttk.Frame(self.setup_tab, style="Surface.TFrame")
-        top_actions.grid(row=2, column=0, sticky="w", pady=(0, 14))
-        self.check_button = ttk.Button(top_actions, text="Check this computer", style="Accent.TButton", command=self.run_preflight)
-        self.check_button.pack(side=LEFT)
-        ttk.Button(top_actions, text="Install WSL2", style="Command.TButton", command=self.install_wsl).pack(side=LEFT, padx=8)
-
-        ttk.Separator(self.setup_tab).grid(row=3, column=0, sticky="ew", pady=(0, 12))
-        checks_header = ttk.Frame(self.setup_tab, style="Surface.TFrame")
-        checks_header.grid(row=4, column=0, sticky="ew")
-        ttk.Label(checks_header, text="Compatibility", style="Section.TLabel").pack(side=LEFT)
-        ttk.Label(checks_header, textvariable=self.setup_status_var, style="Muted.TLabel").pack(side=RIGHT)
-
-        self.checks_frame = ttk.Frame(self.setup_tab, style="Surface.TFrame")
-        self.checks_frame.grid(row=5, column=0, sticky="ew", pady=(8, 16))
-        self.check_widgets: dict[str, tuple[Text, StringVar]] = {}
-        for index, (name, label) in enumerate(
-            [
-                ("windows", "Windows 10/11"),
-                ("wsl", "WSL2"),
-                ("nvidia", "NVIDIA GPU and 16 GB VRAM"),
-                ("disk", "Free disk space"),
-                ("runtime_download", "Runtime download"),
-                ("local_weights", "Existing model files"),
-                ("installed", "Local runtime"),
-            ]
-        ):
-            self.checks_frame.columnconfigure(2, weight=1)
-            marker = Text(self.checks_frame, width=2, height=1, borderwidth=0, background=SURFACE, foreground=MUTED)
-            marker.insert("1.0", "-")
-            marker.configure(state="disabled", font=("Segoe UI Semibold", 10))
-            marker.grid(row=index, column=0, sticky="w", padx=(0, 4), pady=3)
-            ttk.Label(self.checks_frame, text=label, style="Body.TLabel", width=31).grid(row=index, column=1, sticky="w", pady=3)
-            detail = StringVar(value="Not checked")
-            ttk.Label(self.checks_frame, textvariable=detail, style="Muted.TLabel").grid(row=index, column=2, sticky="ew", pady=3)
-            self.check_widgets[name] = (marker, detail)
-
-        ttk.Separator(self.setup_tab).grid(row=6, column=0, sticky="ew", pady=(0, 14))
-        ttk.Label(self.setup_tab, text="Install", style="Section.TLabel").grid(row=7, column=0, sticky="w")
-        license_row = ttk.Frame(self.setup_tab, style="Surface.TFrame")
-        license_row.grid(row=8, column=0, sticky="ew", pady=(8, 8))
+        ttk.Separator(self.setup_tab).grid(row=1, column=0, sticky="ew", pady=(0, 16))
+        self.license_row = ttk.Frame(self.setup_tab, style="Surface.TFrame")
+        self.license_row.grid(row=2, column=0, sticky="ew", pady=(0, 12))
         ttk.Checkbutton(
-            license_row,
-            text="I reviewed and accept the model and CUDA runtime licenses.",
+            self.license_row,
+            text="I accept the model and CUDA runtime licenses.",
             variable=self.license_var,
             command=self._update_install_button,
         ).pack(side=LEFT)
-        link = ttk.Label(license_row, text="Review licenses", foreground=INFO, background=SURFACE, cursor="hand2")
+        link = ttk.Label(self.license_row, text="Review", foreground=INFO, background=SURFACE, cursor="hand2")
         link.pack(side=LEFT, padx=8)
         link.bind("<Button-1>", lambda _event: webbrowser.open("https://huggingface.co/aogavrilov/diffusiongemma-agent-iq3-cuda13/tree/main/LICENSES"))
 
-        path_row = ttk.Frame(self.setup_tab, style="Surface.TFrame")
-        path_row.grid(row=9, column=0, sticky="ew", pady=(2, 10))
-        path_row.columnconfigure(1, weight=1)
-        ttk.Label(path_row, text="Runtime files", style="Body.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10))
-        ttk.Entry(path_row, textvariable=self.cache_var).grid(row=0, column=1, sticky="ew")
-        ttk.Button(path_row, text="Browse", style="Command.TButton", command=self.choose_cache).grid(row=0, column=2, padx=(8, 0))
-        ttk.Label(path_row, text="Auto-detected", style="Muted.TLabel").grid(row=1, column=0, sticky="nw", pady=(5, 0))
+        install_row = ttk.Frame(self.setup_tab, style="Surface.TFrame")
+        install_row.grid(row=3, column=0, sticky="ew")
+        self.install_button = ttk.Button(
+            install_row,
+            text="Install agent",
+            style="Accent.TButton",
+            command=self.setup_primary_action,
+            state="disabled",
+        )
+        self.install_button.pack(side=LEFT)
+        self.setup_cancel_button = ttk.Button(install_row, text="Cancel", style="Command.TButton", command=self.cancel_operation)
+        self.setup_cancel_button.pack(side=LEFT, padx=8)
+        self.setup_cancel_button.pack_forget()
+        self.check_button = ttk.Button(install_row, text="Check again", style="Command.TButton", command=self.run_preflight)
+        self.check_button.pack(side=LEFT, padx=8)
+        self.wsl_button = ttk.Button(install_row, text="Install WSL2", style="Command.TButton", command=self.install_wsl)
+        self.wsl_button.pack(side=LEFT)
+        self.wsl_button.pack_forget()
+        self.setup_progress = ttk.Progressbar(install_row, mode="indeterminate", length=180)
+        self.setup_progress.pack(side=RIGHT)
+        self.setup_progress.pack_forget()
+
+        self.setup_options_button = ttk.Button(
+            self.setup_tab,
+            text="Installation options",
+            style="Command.TButton",
+            command=self.toggle_setup_options,
+        )
+        self.setup_options_button.grid(row=4, column=0, sticky="w", pady=(18, 0))
+        self.setup_options = ttk.Frame(self.setup_tab, style="Surface.TFrame")
+        self.setup_options.grid(row=5, column=0, sticky="ew", pady=(10, 0))
+        self.setup_options.columnconfigure(1, weight=1)
+        ttk.Label(self.setup_options, text="Runtime location", style="Body.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10))
+        ttk.Entry(self.setup_options, textvariable=self.cache_var).grid(row=0, column=1, sticky="ew")
+        ttk.Button(self.setup_options, text="Browse", style="Command.TButton", command=self.choose_cache).grid(row=0, column=2, padx=(8, 0))
         ttk.Label(
-            path_row,
+            self.setup_options,
             textvariable=self.existing_files_var,
             style="Muted.TLabel",
             wraplength=700,
             justify=LEFT,
-        ).grid(row=1, column=1, columnspan=2, sticky="ew", pady=(5, 0))
-
-        install_row = ttk.Frame(self.setup_tab, style="Surface.TFrame")
-        install_row.grid(row=10, column=0, sticky="ew")
-        self.install_button = ttk.Button(
-            install_row,
-            text=f"Download and install ({RUNTIME_SIZE})",
-            style="Accent.TButton",
-            command=self.install_runtime,
-            state="disabled",
-        )
-        self.install_button.pack(side=LEFT)
-        self.setup_progress = ttk.Progressbar(install_row, mode="indeterminate", length=260)
-        self.setup_progress.pack(side=LEFT, padx=14)
-
-        self.setup_output = ScrolledText(self.setup_tab, height=8, wrap="word", font=("Consolas", 9), borderwidth=1, relief="solid")
-        self.setup_output.grid(row=11, column=0, sticky="nsew", pady=(14, 0))
-        self.setup_tab.rowconfigure(11, weight=1)
-        self.setup_output.insert(END, "Run the compatibility check to begin.\n")
-        self.setup_output.configure(state="disabled")
+        ).grid(row=1, column=0, columnspan=3, sticky="ew", pady=(7, 0))
+        self.setup_options.grid_remove()
 
     def _build_agent_tab(self) -> None:
         self.agent_tab.columnconfigure(0, weight=1)
         self.agent_tab.rowconfigure(8, weight=1)
-        ttk.Label(self.agent_tab, text="Run a repository task", style="Section.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Label(
-            self.agent_tab,
-            text="Choose a clean Git repository and describe one concrete change. Failed validation is rolled back automatically.",
-            style="Body.TLabel",
-            wraplength=760,
-            justify=LEFT,
-        ).grid(row=1, column=0, sticky="ew", pady=(5, 12))
+        ttk.Label(self.agent_tab, text="Repository task", style="Section.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 12))
 
         repo_row = ttk.Frame(self.agent_tab, style="Surface.TFrame")
-        repo_row.grid(row=2, column=0, sticky="ew", pady=3)
+        repo_row.grid(row=1, column=0, sticky="ew", pady=3)
         repo_row.columnconfigure(1, weight=1)
-        ttk.Label(repo_row, text="Repository", style="Body.TLabel", width=13).grid(row=0, column=0, sticky="w")
+        ttk.Label(repo_row, text="Repository", style="Body.TLabel", width=11).grid(row=0, column=0, sticky="w")
         ttk.Entry(repo_row, textvariable=self.repo_var).grid(row=0, column=1, sticky="ew")
         ttk.Button(repo_row, text="Browse", style="Command.TButton", command=self.choose_repo).grid(row=0, column=2, padx=(8, 0))
 
-        file_row = ttk.Frame(self.agent_tab, style="Surface.TFrame")
-        file_row.grid(row=3, column=0, sticky="ew", pady=3)
-        file_row.columnconfigure(1, weight=1)
-        ttk.Label(file_row, text="Focus file", style="Body.TLabel", width=13).grid(row=0, column=0, sticky="w")
-        ttk.Entry(file_row, textvariable=self.file_var).grid(row=0, column=1, sticky="ew")
-        ttk.Label(file_row, text="Optional, relative to the repository", style="Muted.TLabel").grid(row=0, column=2, padx=(8, 0))
-
-        ttk.Label(self.agent_tab, text="Task", style="Body.TLabel").grid(row=4, column=0, sticky="w", pady=(10, 3))
-        self.task_text = Text(self.agent_tab, height=5, wrap="word", font=("Segoe UI", 10), borderwidth=1, relief="solid", padx=8, pady=8)
-        self.task_text.grid(row=5, column=0, sticky="ew")
-        self.task_text.insert("1.0", "Fix the bug in the selected file and run the focused tests.")
+        ttk.Label(self.agent_tab, text="Task", style="Body.TLabel").grid(row=2, column=0, sticky="w", pady=(10, 3))
+        self.task_text = Text(self.agent_tab, height=4, wrap="word", font=("Segoe UI", 10), borderwidth=1, relief="solid", padx=8, pady=8)
+        self.task_text.grid(row=3, column=0, sticky="ew")
 
         command_row = ttk.Frame(self.agent_tab, style="Surface.TFrame")
-        command_row.grid(row=6, column=0, sticky="ew", pady=10)
-        ttk.Label(command_row, text="Maximum attempts", style="Body.TLabel").pack(side=LEFT)
-        ttk.Spinbox(command_row, from_=1, to=5, width=4, textvariable=self.steps_var).pack(side=LEFT, padx=(6, 14))
+        command_row.grid(row=4, column=0, sticky="ew", pady=(10, 6))
         self.run_button = ttk.Button(command_row, text="Run task", style="Accent.TButton", command=self.run_task)
         self.run_button.pack(side=LEFT)
-        ttk.Button(command_row, text="Cancel operation", style="Command.TButton", command=self.cancel_operation).pack(side=LEFT, padx=8)
+        self.cancel_button = ttk.Button(command_row, text="Cancel", style="Command.TButton", command=self.cancel_operation, state="disabled")
+        self.cancel_button.pack(side=LEFT, padx=8)
+        self.cancel_button.pack_forget()
         ttk.Button(command_row, text="Open repository", style="Command.TButton", command=self.open_repo).pack(side=RIGHT)
+
+        self.task_options_button = ttk.Button(
+            self.agent_tab,
+            text="Task options",
+            style="Command.TButton",
+            command=self.toggle_task_options,
+        )
+        self.task_options_button.grid(row=5, column=0, sticky="w", pady=(0, 8))
+        self.task_options = ttk.Frame(self.agent_tab, style="Surface.TFrame")
+        self.task_options.grid(row=6, column=0, sticky="ew", pady=(0, 8))
+        self.task_options.columnconfigure(1, weight=1)
+        ttk.Label(self.task_options, text="Focus file", style="Body.TLabel", width=11).grid(row=0, column=0, sticky="w")
+        ttk.Entry(self.task_options, textvariable=self.file_var).grid(row=0, column=1, sticky="ew")
+        ttk.Label(self.task_options, text="Attempts", style="Body.TLabel").grid(row=0, column=2, sticky="w", padx=(14, 5))
+        ttk.Spinbox(self.task_options, from_=1, to=5, width=4, textvariable=self.steps_var).grid(row=0, column=3, sticky="w")
+        self.task_options.grid_remove()
 
         ttk.Separator(self.agent_tab).grid(row=7, column=0, sticky="ew", pady=(0, 8))
         result_tabs = ttk.Notebook(self.agent_tab)
@@ -364,25 +362,30 @@ class AgentDesktop:
     def _build_service_tab(self) -> None:
         self.service_tab.columnconfigure(0, weight=1)
         self.service_tab.rowconfigure(4, weight=1)
-        ttk.Label(self.service_tab, text="Model service", style="Section.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(self.service_tab, text="Diagnostics", style="Section.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(
             self.service_tab,
-            text="Start the service before running tasks. Stop it when finished to release GPU memory.",
+            textvariable=self.diagnostics_summary_var,
             style="Body.TLabel",
             wraplength=760,
             justify=LEFT,
         ).grid(row=1, column=0, sticky="ew", pady=(5, 12))
         controls = ttk.Frame(self.service_tab, style="Surface.TFrame")
         controls.grid(row=2, column=0, sticky="w", pady=(0, 12))
-        ttk.Button(controls, text="Refresh status", style="Command.TButton", command=self.refresh_service).pack(side=LEFT)
-        ttk.Button(controls, text="Start service", style="Accent.TButton", command=self.start_service).pack(side=LEFT, padx=8)
-        ttk.Button(controls, text="Stop and release GPU", style="Command.TButton", command=self.stop_service).pack(side=LEFT)
-        ttk.Button(controls, text="Refresh logs", style="Command.TButton", command=self.load_logs).pack(side=LEFT, padx=8)
+        self.service_toggle_button = ttk.Button(controls, text="Start service", style="Accent.TButton", command=self.toggle_service)
+        self.service_toggle_button.pack(side=LEFT)
+        ttk.Button(controls, text="Refresh", style="Command.TButton", command=self.refresh_service).pack(side=LEFT, padx=8)
+        ttk.Button(controls, text="Load logs", style="Command.TButton", command=self.load_logs).pack(side=LEFT)
         ttk.Separator(self.service_tab).grid(row=3, column=0, sticky="ew", pady=(0, 8))
         self.service_output = ScrolledText(self.service_tab, wrap="word", font=("Consolas", 9), borderwidth=0)
         self.service_output.grid(row=4, column=0, sticky="nsew")
-        self.service_output.insert(END, "Service status and logs will appear here.\n")
+        self.service_output.insert(END, "Technical details will appear here.\n")
         self.service_output.configure(state="disabled")
+        ttk.Label(
+            self.service_tab,
+            text=f"Desktop {APP_VERSION} | Core {core_version}",
+            style="Muted.TLabel",
+        ).grid(row=5, column=0, sticky="e", pady=(8, 0))
 
     def _replace_output(self, widget: ScrolledText, text: str) -> None:
         widget.configure(state="normal")
@@ -404,7 +407,8 @@ class AgentDesktop:
         marker.configure(state="disabled")
 
     def _update_install_button(self) -> None:
-        state = "normal" if self.preflight_ok and self.license_var.get() and not self._is_busy() else "disabled"
+        ready = self.runtime_installed or (self.preflight_ok and self.license_var.get())
+        state = "normal" if ready and not self._is_busy() else "disabled"
         self.install_button.configure(state=state)
 
     def _is_busy(self) -> bool:
@@ -415,11 +419,53 @@ class AgentDesktop:
         self.footer_var.set(label if busy else "Ready")
         self.check_button.configure(state="disabled" if busy else "normal")
         self.run_button.configure(state="disabled" if busy else "normal")
-        if busy:
+        self.service_toggle_button.configure(state="disabled" if busy else "normal")
+        setup_operation = busy and any(word in label.lower() for word in ("checking", "installing", "downloading", "reusing"))
+        task_operation = busy and "repository task" in label.lower()
+        if setup_operation:
+            self.setup_cancel_button.pack(side=LEFT, padx=8, after=self.install_button)
+            self.check_button.pack_forget()
+        else:
+            self.setup_cancel_button.pack_forget()
+            if not self.check_button.winfo_manager():
+                self.check_button.pack(side=LEFT, padx=8, after=self.install_button)
+        if task_operation:
+            self.cancel_button.configure(state="normal")
+            self.cancel_button.pack(side=LEFT, padx=8, after=self.run_button)
+        else:
+            self.cancel_button.pack_forget()
+        if setup_operation:
+            if not self.setup_progress.winfo_manager():
+                self.setup_progress.pack(side=RIGHT)
             self.setup_progress.start(10)
         else:
             self.setup_progress.stop()
+            self.setup_progress.pack_forget()
         self._update_install_button()
+
+    def toggle_setup_options(self) -> None:
+        self.setup_options_visible = not self.setup_options_visible
+        if self.setup_options_visible:
+            self.setup_options.grid()
+            self.setup_options_button.configure(text="Hide installation options")
+        else:
+            self.setup_options.grid_remove()
+            self.setup_options_button.configure(text="Installation options")
+
+    def toggle_task_options(self) -> None:
+        self.task_options_visible = not self.task_options_visible
+        if self.task_options_visible:
+            self.task_options.grid()
+            self.task_options_button.configure(text="Hide task options")
+        else:
+            self.task_options.grid_remove()
+            self.task_options_button.configure(text="Task options")
+
+    def setup_primary_action(self) -> None:
+        if self.runtime_installed:
+            self.notebook.select(self.agent_tab)
+            return
+        self.install_runtime()
 
     def _start_command(
         self,
@@ -487,10 +533,12 @@ class AgentDesktop:
 
     def run_preflight(self) -> None:
         self.setup_status_var.set("Checking...")
+        self.setup_detail_var.set("Checking Windows, WSL2, GPU and available files.")
+        self._set_marker(self.setup_marker, "-", MUTED)
         self._start_command(
             ["doctor", "--json"],
             label="Checking computer",
-            output=self.setup_output,
+            output=self.service_output,
             on_complete=self._preflight_finished,
         )
 
@@ -500,23 +548,20 @@ class AgentDesktop:
             rows, compatible = summarize_doctor(payload)
         except (TypeError, ValueError, json.JSONDecodeError):
             self.preflight_ok = False
-            self.setup_status_var.set("The check did not return valid results.")
+            self.runtime_installed = False
+            self.setup_status_var.set("The computer check failed")
+            self.setup_detail_var.set(concise_error(output))
+            self._set_marker(self.setup_marker, "X", DANGER)
             self._update_install_button()
             return
         self.preflight_ok = compatible
+        self.runtime_installed = bool(next((row["ok"] for row in rows if row["name"] == "installed"), False))
+        title, detail_text = setup_summary(rows)
+        self.setup_status_var.set(title)
+        self.setup_detail_var.set(detail_text)
+        self._set_marker(self.setup_marker, "OK" if compatible else "X", ACCENT if compatible else DANGER)
         local_weights: dict[str, Any] = {}
         for row in rows:
-            widgets = self.check_widgets.get(row["name"])
-            if not widgets:
-                continue
-            marker, detail = widgets
-            if row["ok"]:
-                self._set_marker(marker, "OK", ACCENT)
-            elif row["required"]:
-                self._set_marker(marker, "X", DANGER)
-            else:
-                self._set_marker(marker, "--", MUTED)
-            detail.set(row["detail"])
             if row["name"] == "local_weights":
                 checks = payload.get("checks") if isinstance(payload.get("checks"), dict) else {}
                 raw_local = checks.get("local_weights") if isinstance(checks.get("local_weights"), dict) else {}
@@ -528,16 +573,29 @@ class AgentDesktop:
             if detected_runtime:
                 self.cache_var.set(detected_runtime)
                 self.existing_files_var.set(f"Complete compatible runtime found: {detected_runtime}")
-                self.install_button.configure(text="Install using existing files")
             else:
                 self.existing_files_var.set(f"Compatible model found: {self.detected_model_file}")
-                self.install_button.configure(text="Reuse existing model and install")
         else:
             self.detected_model_file = ""
             self.detected_runtime_dir = ""
             self.existing_files_var.set("No compatible local files found; the runtime will be downloaded.")
-            self.install_button.configure(text=f"Download and install ({RUNTIME_SIZE})")
-        self.setup_status_var.set("This computer is compatible." if compatible else "Resolve the failed requirements before installing.")
+        self.install_button.configure(text="Open Agent" if self.runtime_installed else "Install agent")
+        if self.runtime_installed:
+            self.license_row.grid_remove()
+            self.setup_options_button.grid_remove()
+            self.setup_options.grid_remove()
+            self.check_button.pack_forget()
+            self.notebook.select(self.agent_tab)
+        else:
+            self.license_row.grid()
+            self.setup_options_button.grid()
+            if not self.check_button.winfo_manager():
+                self.check_button.pack(side=LEFT, padx=8, after=self.install_button)
+        wsl_failed = any(row["name"] == "wsl" and row["required"] and not row["ok"] for row in rows)
+        if wsl_failed:
+            self.wsl_button.pack(side=LEFT)
+        else:
+            self.wsl_button.pack_forget()
         self._update_install_button()
         self.root.after(150, self.refresh_service)
 
@@ -551,7 +609,7 @@ class AgentDesktop:
             return
         messagebox.showinfo(
             "WSL2 installation started",
-            "Approve the Windows prompt. Restart the computer if requested, open this app again, then click 'Check this computer'.",
+            "Approve the Windows prompt. Restart the computer if requested, open this app again, then click 'Check again'.",
         )
 
     def choose_cache(self) -> None:
@@ -567,37 +625,41 @@ class AgentDesktop:
             messagebox.showwarning("Compatibility", "Run the computer check and resolve all failed requirements first.")
             return
         if self.detected_runtime_dir:
-            confirmation = "Use the detected local runtime and install it into WSL2? The 13.2 GB model download will be skipped."
             operation_label = "Installing the local agent from existing files"
         elif self.detected_model_file:
-            confirmation = "Reuse the detected local model and download only missing runtime files before installing into WSL2?"
             operation_label = "Reusing the existing model and installing the local agent"
         else:
-            confirmation = (
-                f"The download is approximately {RUNTIME_SIZE} and the WSL2 installation needs additional disk space. Continue?"
-            )
             operation_label = "Downloading and installing the local agent"
-        if not messagebox.askokcancel("Install local agent", confirmation):
-            return
         arguments = ["install", "--accept-licenses", "--local-dir", self.cache_var.get()]
         if self.detected_model_file:
             arguments.extend(["--model-file", self.detected_model_file])
         self._start_command(
             arguments,
             label=operation_label,
-            output=self.setup_output,
+            output=self.service_output,
             on_complete=self._install_finished,
         )
 
-    def _install_finished(self, code: int, _output: str) -> None:
+    def _install_finished(self, code: int, output: str) -> None:
         if code == 0:
-            self.setup_status_var.set("Installation completed.")
-            messagebox.showinfo("Installation complete", "The local agent is installed and ready. Choose a repository on the Agent tab.")
+            self.preflight_ok = True
+            self.runtime_installed = True
+            self.setup_status_var.set("The agent is installed")
+            self.setup_detail_var.set("Choose a repository and describe the task you want to run.")
+            self._set_marker(self.setup_marker, "OK", ACCENT)
+            self.install_button.configure(text="Open Agent")
+            self.license_row.grid_remove()
+            self.setup_options_button.grid_remove()
+            self.setup_options.grid_remove()
             self.notebook.select(self.agent_tab)
             self.refresh_service()
         else:
-            self.setup_status_var.set("Installation failed. Review the output below.")
-            messagebox.showerror("Installation failed", "Review the installation output. Use the Service and logs tab for diagnostics.")
+            error = concise_error(output)
+            self.setup_status_var.set("Installation failed")
+            self.setup_detail_var.set(error)
+            self._set_marker(self.setup_marker, "X", DANGER)
+            messagebox.showerror("Installation failed", f"{error}\n\nTechnical details are available in Diagnostics.")
+            self.notebook.select(self.service_tab)
 
     def choose_repo(self) -> None:
         initial = self.repo_var.get() or str(Path.home())
@@ -685,6 +747,8 @@ class AgentDesktop:
             self.service_ready = False
             self.status_var.set("Unavailable")
             self._set_status_dot(MUTED)
+            self.diagnostics_summary_var.set("The service status could not be read. Load the logs for technical details.")
+            self.service_toggle_button.configure(text="Start service", state="disabled")
             return
         installed = bool(payload.get("installed"))
         backend = bool((payload.get("backend") or {}).get("ok"))
@@ -693,12 +757,18 @@ class AgentDesktop:
         if self.service_ready:
             self.status_var.set("Ready")
             self._set_status_dot(ACCENT)
+            self.diagnostics_summary_var.set("The model and agent services are running.")
+            self.service_toggle_button.configure(text="Stop service", state="normal")
         elif installed:
             self.status_var.set("Stopped")
             self._set_status_dot(MUTED)
+            self.diagnostics_summary_var.set("The agent is installed. Start the service when you need it.")
+            self.service_toggle_button.configure(text="Start service", state="normal")
         else:
-            self.status_var.set("Not installed")
+            self.status_var.set("Setup required")
             self._set_status_dot(DANGER)
+            self.diagnostics_summary_var.set("Install the agent from Setup before starting the service.")
+            self.service_toggle_button.configure(text="Start service", state="disabled")
 
     def _set_status_dot(self, color: str) -> None:
         self.status_dot.configure(state="normal", foreground=color)
@@ -722,6 +792,12 @@ class AgentDesktop:
             on_complete=lambda code, _output: self._service_action_finished(code, "stopped"),
         )
 
+    def toggle_service(self) -> None:
+        if self.service_ready:
+            self.stop_service()
+        else:
+            self.start_service()
+
     def _service_action_finished(self, code: int, action: str) -> None:
         if code == 0:
             self.footer_var.set(f"Services {action}.")
@@ -736,7 +812,10 @@ class AgentDesktop:
         if not self._is_busy() or self.active_process is None:
             messagebox.showinfo("Operation", "There is no active operation to cancel.")
             return
-        if not messagebox.askyesno("Cancel operation", "Cancel the current operation? Partial downloads remain resumable."):
+        detail = "Cancel the current operation?"
+        if any(word in self.active_label.lower() for word in ("installing", "downloading", "reusing")):
+            detail += " Partial downloads remain resumable."
+        if not messagebox.askyesno("Cancel operation", detail):
             return
         self.active_process.terminate()
         self.footer_var.set("Cancelling the current operation...")
@@ -757,6 +836,10 @@ def smoke_test() -> int:
         "core_version": core_version,
         "tabs": [app.notebook.tab(index, "text") for index in range(app.notebook.index("end"))],
         "geometry": root.geometry(),
+        "setup_raw_output_visible": hasattr(app, "setup_output"),
+        "setup_options_visible": bool(app.setup_options.winfo_manager()),
+        "task_options_visible": bool(app.task_options.winfo_manager()),
+        "setup_progress_visible": bool(app.setup_progress.winfo_manager()),
         "cli": cli_command("--version"),
     }
     print(json.dumps(report, indent=2))

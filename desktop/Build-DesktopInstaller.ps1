@@ -11,7 +11,7 @@ $output = [IO.Path]::GetFullPath($OutputDirectory)
 $appDist = Join-Path $repo 'build\desktop'
 $work = Join-Path $repo 'build\pyinstaller'
 $spec = Join-Path $PSScriptRoot 'diffusiongemma_agent.spec'
-$setup = Join-Path $output 'DiffusionGemmaAgentSetup-0.1.2.exe'
+$setup = Join-Path $output 'DiffusionGemmaAgentSetup-0.1.3.exe'
 $makensis = @(
     'C:\Program Files (x86)\NSIS\makensis.exe',
     'C:\Program Files\NSIS\makensis.exe'

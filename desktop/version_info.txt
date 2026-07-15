@@ -1,7 +1,7 @@
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(0, 1, 1, 0),
-    prodvers=(0, 1, 1, 0),
+    filevers=(0, 1, 3, 0),
+    prodvers=(0, 1, 3, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -16,12 +16,12 @@ VSVersionInfo(
         [
           StringStruct(u'CompanyName', u'DiffusionGemma Agent contributors'),
           StringStruct(u'FileDescription', u'DiffusionGemma Agent Desktop'),
-          StringStruct(u'FileVersion', u'0.1.2'),
+          StringStruct(u'FileVersion', u'0.1.3'),
           StringStruct(u'InternalName', u'DiffusionGemmaAgent'),
           StringStruct(u'LegalCopyright', u'Apache-2.0'),
           StringStruct(u'OriginalFilename', u'DiffusionGemmaAgent.exe'),
           StringStruct(u'ProductName', u'DiffusionGemma Agent'),
-          StringStruct(u'ProductVersion', u'0.1.2')
+          StringStruct(u'ProductVersion', u'0.1.3')
         ]
       )
     ]),
