@@ -32,7 +32,7 @@ a large-context cloud agent on broad, ambiguous repository-wide work.
 
 No Python, CUDA Toolkit, compiler, or command line is required.
 
-1. [Download DiffusionGemmaAgentSetup-0.1.3.exe](https://github.com/aogavrilov/diffusiongemma-agent/releases/download/desktop-v0.1.3/DiffusionGemmaAgentSetup-0.1.3.exe).
+1. [Download DiffusionGemmaAgentSetup-0.1.4.exe](https://github.com/aogavrilov/diffusiongemma-agent/releases/download/desktop-v0.1.4/DiffusionGemmaAgentSetup-0.1.4.exe).
 2. Open the installer, then launch **DiffusionGemma Agent**.
 3. The app checks Windows, WSL2, the NVIDIA GPU, VRAM, disk space, and runtime
    access automatically.

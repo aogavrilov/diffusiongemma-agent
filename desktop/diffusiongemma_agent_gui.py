@@ -16,9 +16,10 @@ from tkinter.scrolledtext import ScrolledText
 from typing import Any, Callable
 
 from diffusiongemma_agent import __version__ as core_version
+from diffusiongemma_agent.cli import exact_git_root, infer_task_mode
 
 
-APP_VERSION = "0.1.3"
+APP_VERSION = "0.1.4"
 RUNTIME_SIZE = "13.2 GB"
 BG = "#f4f6f8"
 SURFACE = "#ffffff"
@@ -38,16 +39,20 @@ def cli_command(*arguments: str) -> list[str]:
     return [sys.executable, "-m", "diffusiongemma_agent", *arguments]
 
 
-def validate_task(repo_value: str, task_value: str) -> tuple[Path | None, str | None]:
+def validate_task(repo_value: str, task_value: str, mode: str = "edit") -> tuple[Path | None, str | None]:
     repo = Path(repo_value).expanduser()
     if not repo_value.strip():
         return None, "Choose a repository folder."
     if not repo.is_dir():
         return None, "The selected repository folder does not exist."
-    if not (repo / ".git").exists():
-        return None, "The selected folder is not a Git repository."
     if not task_value.strip():
         return None, "Describe the change you want the agent to make."
+    if mode == "edit":
+        root = exact_git_root(repo)
+        if root is None:
+            return None, "Code changes require a Git repository. Choose its root folder."
+        if os.path.normcase(str(root)) != os.path.normcase(str(repo.resolve())):
+            return None, f"Choose the exact Git root for code changes: {root}"
     return repo.resolve(), None
 
 
@@ -132,6 +137,7 @@ class AgentDesktop:
         self.runtime_installed = False
         self.service_ready = False
         self.last_diff = ""
+        self.active_task_mode = ""
         self.setup_options_visible = False
         self.task_options_visible = False
 
@@ -421,7 +427,9 @@ class AgentDesktop:
         self.run_button.configure(state="disabled" if busy else "normal")
         self.service_toggle_button.configure(state="disabled" if busy else "normal")
         setup_operation = busy and any(word in label.lower() for word in ("checking", "installing", "downloading", "reusing"))
-        task_operation = busy and "repository task" in label.lower()
+        task_operation = busy and any(
+            phrase in label.lower() for phrase in ("repository task", "repository question", "code change")
+        )
         if setup_operation:
             self.setup_cancel_button.pack(side=LEFT, padx=8, after=self.install_button)
             self.check_button.pack_forget()
@@ -669,7 +677,8 @@ class AgentDesktop:
 
     def run_task(self) -> None:
         task = self.task_text.get("1.0", END).strip()
-        repo, error = validate_task(self.repo_var.get(), task)
+        mode = infer_task_mode(task)
+        repo, error = validate_task(self.repo_var.get(), task, mode)
         if error:
             messagebox.showwarning("Task is incomplete", error)
             return
@@ -679,23 +688,37 @@ class AgentDesktop:
         except ValueError:
             steps = 3
         steps = max(1, min(5, steps))
-        arguments = ["run", "--repo", str(repo), "--task", task, "--max-steps", str(steps)]
+        arguments = ["run", "--repo", str(repo), "--task", task, "--max-steps", str(steps), "--mode", mode]
         if self.file_var.get().strip():
             arguments.extend(["--file", self.file_var.get().strip()])
-        self._replace_output(self.diff_output, "The repository diff will appear after the task.\n")
+        self.active_task_mode = mode
+        if mode == "read":
+            label = "Answering repository question"
+            self._replace_output(self.diff_output, "Read-only task: no files will be changed.\n")
+        else:
+            label = "Running checkpointed code change"
+            self._replace_output(self.diff_output, "The repository diff will appear after the task.\n")
         self._start_command(
             arguments,
-            label="Running repository task",
+            label=label,
             output=self.activity_output,
             on_complete=lambda code, output: self._task_finished(code, output, repo),
         )
 
-    def _task_finished(self, code: int, _output: str, repo: Path) -> None:
+    def _task_finished(self, code: int, output: str, repo: Path) -> None:
         if code == 0:
-            self.footer_var.set("Task completed. Review the changes before committing.")
+            if self.active_task_mode == "read":
+                self._append_output(self.activity_output, "\nRepository question completed.\n")
+                self.footer_var.set("Repository answer completed.")
+            else:
+                self._append_output(self.activity_output, "\nCode change completed. Review the Changes tab.\n")
+                self.footer_var.set("Task completed. Review the changes before committing.")
         else:
-            self.footer_var.set("Task failed. Failed session changes should have been rolled back.")
-        self._load_diff(repo)
+            detail = concise_error(output)
+            self._append_output(self.activity_output, f"\nTask stopped: {detail}\n")
+            self.footer_var.set("Task stopped. Review Activity for the reason.")
+        if self.active_task_mode == "edit":
+            self._load_diff(repo)
 
     def _load_diff(self, repo: Path) -> None:
         def worker() -> None:

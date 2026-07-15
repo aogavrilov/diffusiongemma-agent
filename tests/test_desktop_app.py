@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -76,13 +77,26 @@ FullyQualifiedErrorId : RuntimeException
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             _, error = validate_task(str(root), "fix it")
-            self.assertIn("Git repository", error or "")
-            (root / ".git").mkdir()
+            self.assertIn("Git root", error or "")
+            subprocess.run(["git", "init", "--quiet", str(root)], check=True)
             _, error = validate_task(str(root), "")
             self.assertIn("Describe", error or "")
             repo, error = validate_task(str(root), "fix it")
             self.assertIsNone(error)
             self.assertEqual(repo, root.resolve())
+
+    def test_read_only_task_accepts_an_ordinary_folder(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            repo, error = validate_task(temporary, "describe this folder", "read")
+            self.assertIsNone(error)
+            self.assertEqual(repo, Path(temporary).resolve())
+
+    def test_empty_dot_git_directory_is_not_a_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / ".git").mkdir()
+            _, error = validate_task(str(root), "fix it", "edit")
+            self.assertIn("Git root", error or "")
 
     def test_source_cli_command_uses_module_entrypoint(self) -> None:
         command = cli_command("doctor", "--json")

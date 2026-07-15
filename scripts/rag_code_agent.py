@@ -327,6 +327,15 @@ def snippet_for_file(repo: Path, rel: Path, matched_lines: set[int], max_chars: 
 
 
 def git_context(repo: Path, max_chars: int = 600) -> str:
+    root_probe = run(["git", "rev-parse", "--show-toplevel"], repo, timeout=10)
+    if root_probe.returncode != 0 or not root_probe.stdout.strip():
+        return ""
+    try:
+        git_root = Path(root_probe.stdout.strip()).resolve()
+    except OSError:
+        return ""
+    if git_root != repo.resolve():
+        return ""
     chunks: list[str] = []
     for title, cmd in (
         ("git status --short", ["git", "status", "--short"]),
@@ -346,6 +355,20 @@ def build_context(repo: Path, task: str, max_context_chars: int, max_files: int,
     files = list_files(repo)
     scores = score_files(repo, files, task)
     ranked = sorted(scores.items(), key=lambda item: (-item[1].score, item[0].as_posix()))[:max_files]
+    overview = any(
+        marker in task.lower()
+        for marker in ("describe", "summarize", "overview", "what is in", "опиши", "обзор", "что в")
+    )
+    if overview:
+        preferred_names = {"readme.md", "readme.rst", "pyproject.toml", "package.json", "cargo.toml", "main.py", "index.py"}
+        text_suffixes = {".md", ".rst", ".txt", ".py", ".js", ".ts", ".json", ".toml", ".yaml", ".yml", ".tex"}
+        preferred = [item for item in scores.items() if item[0].name.lower() in preferred_names]
+        top_level = [item for item in scores.items() if item[0].parent == Path(".") and item[0].suffix.lower() in text_suffixes]
+        ordered: list[tuple[Path, Any]] = []
+        for item in preferred + top_level + ranked:
+            if item[0] not in {path for path, _ in ordered}:
+                ordered.append(item)
+        ranked = ordered[:max_files]
 
     sections: list[str] = []
     if debug:

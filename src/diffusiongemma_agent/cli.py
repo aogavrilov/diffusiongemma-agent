@@ -42,6 +42,30 @@ LICENSE_URLS = (
     "https://huggingface.co/google/diffusiongemma-26B-A4B-it",
     "https://docs.nvidia.com/cuda/eula/",
 )
+EDIT_TASK_MARKERS = (
+    " add ",
+    " change ",
+    " create ",
+    " delete ",
+    " edit ",
+    " fix ",
+    " implement ",
+    " modify ",
+    " refactor ",
+    " remove ",
+    " update ",
+    "write ",
+    "добав",
+    "измен",
+    "исправ",
+    "обнов",
+    "передел",
+    "почин",
+    "реализ",
+    "сдела",
+    "созда",
+    "удал",
+)
 
 
 def state_dir() -> Path:
@@ -444,6 +468,156 @@ def invoke_runtime(extra: list[str]) -> int:
     return invoke([powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(launcher), *extra]).returncode
 
 
+def supervisor_state_path(output: str) -> str:
+    matches = re.findall(r"Supervisor state:\s*(/[^\r\n]+/state\.json)", output)
+    return matches[-1].strip() if matches else ""
+
+
+def format_supervisor_result(state: dict[str, Any]) -> list[str]:
+    status = str(state.get("status") or "unknown")
+    steps = state.get("steps") if isinstance(state.get("steps"), list) else []
+    lines = [f"Task status: {status}", f"Actions completed: {len(steps)}"]
+    for step in steps:
+        if isinstance(step, dict):
+            lines.append(f"Action {step.get('index', '?')}: {step.get('status', 'unknown')}")
+    warnings = state.get("warnings") if isinstance(state.get("warnings"), list) else []
+    lines.extend(f"Reason: {warning}" for warning in warnings)
+    return lines
+
+
+def invoke_runtime_task(extra: list[str]) -> int:
+    runtime = runtime_dir_from_config()
+    launcher = runtime / "dg.ps1"
+    if not launcher.is_file():
+        raise RuntimeError(f"Runtime launcher is missing: {launcher}")
+    command = [powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(launcher), *extra]
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    lines: list[str] = []
+    assert process.stdout is not None
+    for line in process.stdout:
+        lines.append(line)
+        print(line, end="", flush=True)
+    code = process.wait()
+    state_path = supervisor_state_path("".join(lines))
+    if state_path:
+        config, _ = configured_runtime()
+        wsl_root = str(config.get("wsl_root") or "")
+        wsl = wsl_executable()
+        if wsl and wsl_root and state_path.startswith(wsl_root.rstrip("/") + "/runlogs/"):
+            result = subprocess.run(
+                [wsl, "--exec", "cat", state_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=15,
+                check=False,
+            )
+            try:
+                state = json.loads(result.stdout)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                state = {}
+            if isinstance(state, dict) and state:
+                for line in format_supervisor_result(state):
+                    print(line, flush=True)
+    return code
+
+
+def infer_task_mode(task: str) -> str:
+    normalized = " " + re.sub(r"\s+", " ", task.strip().lower()) + " "
+    return "edit" if any(marker in normalized for marker in EDIT_TASK_MARKERS) else "read"
+
+
+def exact_git_root(repo: Path) -> Path | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "--show-toplevel"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+    return Path(result.stdout.strip()).resolve()
+
+
+def require_exact_git_root(repo: Path) -> None:
+    root = exact_git_root(repo)
+    if root is None:
+        raise RuntimeError("Code changes require a Git repository. Choose its root folder.")
+    if os.path.normcase(str(root)) != os.path.normcase(str(repo.resolve())):
+        raise RuntimeError(
+            f"Code changes require the exact Git root. Selected: {repo.resolve()}. Git root: {root}."
+        )
+
+
+def windows_path_to_wsl(path: Path, wsl: str) -> str:
+    result = subprocess.run(
+        [wsl, "--exec", "wslpath", "-a", str(path.resolve())],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=15,
+        check=False,
+    )
+    value = result.stdout.strip()
+    if result.returncode != 0 or not value:
+        raise RuntimeError(f"Could not convert the repository path for WSL2: {result.stderr.strip()}")
+    return value
+
+
+def run_read_task(repo: Path, task: str, file_name: str, max_steps: int) -> int:
+    config, _ = configured_runtime()
+    wsl_root = str(config.get("wsl_root") or "")
+    wsl = wsl_executable()
+    if not wsl_root or not wsl:
+        raise RuntimeError("The WSL2 runtime is not configured. Install the agent first.")
+    wsl_repo = windows_path_to_wsl(repo, wsl)
+    command = [
+        wsl,
+        "--exec",
+        "env",
+        f"DG_AGENT_PYTHON={wsl_root}/.venv-runtime/bin/python",
+        f"{wsl_root}/scripts/dg_agent.sh",
+        "agent",
+        "--repo",
+        wsl_repo,
+        "--task",
+        task,
+        "--mode",
+        "read",
+        "--max-steps",
+        str(max(1, min(2, max_steps))),
+        "--max-tokens",
+        "256",
+        "--timeout",
+        "180",
+    ]
+    if file_name:
+        command.extend(["--file", file_name])
+    print("Route: repository question (read-only)", flush=True)
+    print("Action: inspect relevant repository files with local tools", flush=True)
+    result = invoke(command)
+    print("Result: completed" if result.returncode == 0 else "Result: failed", flush=True)
+    return result.returncode
+
+
 def endpoint_health(url: str) -> dict[str, Any]:
     try:
         with urllib.request.urlopen(url, timeout=3) as response:
@@ -700,11 +874,12 @@ def parser() -> argparse.ArgumentParser:
     sub.add_parser("start", help="Start the model backend and safe agent gateway")
     sub.add_parser("stop", help="Stop services and release GPU memory")
 
-    run = sub.add_parser("run", help="Run one checkpointed repository task")
+    run = sub.add_parser("run", help="Ask about a repository or run one checkpointed code change")
     run.add_argument("--repo", default=str(Path.cwd()), help="Windows path to the Git repository")
     run.add_argument("--task", required=True, help="Concrete change and validation requested from the agent")
     run.add_argument("--file", default="", help="Optional repository-relative file to prioritize")
     run.add_argument("--max-steps", type=int, choices=range(1, 6), default=3, metavar="1-5", help="Maximum agent iterations (default: 3)")
+    run.add_argument("--mode", choices=("auto", "read", "edit"), default="auto", help="Choose automatically, ask without edits, or change code")
 
     status_parser = sub.add_parser("status", help="Show installation and service health")
     status_parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
@@ -735,10 +910,16 @@ def main(argv: list[str] | None = None) -> int:
             repo = Path(args.repo).expanduser().resolve()
             if not repo.is_dir():
                 raise RuntimeError(f"Repository directory does not exist: {repo}")
+            mode = infer_task_mode(args.task) if args.mode == "auto" else args.mode
+            if mode == "read":
+                return run_read_task(repo, args.task, args.file, args.max_steps)
+            require_exact_git_root(repo)
+            print("Route: checkpointed code change", flush=True)
+            print("Action: inspect repository state and plan the requested change", flush=True)
             command = ["-Repo", str(repo), "-Task", args.task, "-MaxSteps", str(args.max_steps)]
             if args.file:
                 command.extend(["-File", args.file])
-            return invoke_runtime(command)
+            return invoke_runtime_task(command)
         if args.command == "status":
             return status(args.json)
         if args.command == "doctor":

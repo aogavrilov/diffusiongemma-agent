@@ -38,6 +38,8 @@ class PackageCliTests(unittest.TestCase):
         self.assertEqual(args.task, "fix it")
         self.assertEqual(args.file, "src/x.py")
         self.assertEqual(args.max_steps, 5)
+        self.assertEqual(args.mode, "auto")
+        self.assertEqual(parser.parse_args(["run", "--task", "inspect it", "--mode", "read"]).mode, "read")
 
         with self.assertRaises(SystemExit):
             parser.parse_args(["run", "--task", "fix it", "--max-steps", "6"])
@@ -47,6 +49,31 @@ class PackageCliTests(unittest.TestCase):
         with patch("diffusiongemma_agent.cli.platform.system", return_value="Windows"):
             with self.assertRaisesRegex(RuntimeError, "accept-licenses"):
                 cli.install_runtime(args)
+
+    def test_task_mode_routes_questions_and_code_changes(self) -> None:
+        self.assertEqual(cli.infer_task_mode("опиши, что в этом репо"), "read")
+        self.assertEqual(cli.infer_task_mode("describe this repository"), "read")
+        self.assertEqual(cli.infer_task_mode("исправь ошибку в parser.py"), "edit")
+        self.assertEqual(cli.infer_task_mode("fix parser.py"), "edit")
+
+    def test_read_task_does_not_require_git(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            with patch("diffusiongemma_agent.cli.run_read_task", return_value=0) as run_read:
+                result = cli.main(["run", "--repo", temporary, "--task", "describe this folder"])
+            self.assertEqual(result, 0)
+            self.assertEqual(run_read.call_args.args[0], Path(temporary).resolve())
+
+    def test_supervisor_result_explains_when_no_actions_ran(self) -> None:
+        output = "Supervisor state: /root/.local/share/diffusiongemma-agent/runlogs/run-1/state.json\n"
+        self.assertEqual(
+            cli.supervisor_state_path(output),
+            "/root/.local/share/diffusiongemma-agent/runlogs/run-1/state.json",
+        )
+        lines = cli.format_supervisor_result(
+            {"status": "blocked", "steps": [], "warnings": ["repository is dirty"]}
+        )
+        self.assertEqual(lines[:2], ["Task status: blocked", "Actions completed: 0"])
+        self.assertIn("Reason: repository is dirty", lines)
 
     def test_runtime_config_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -165,7 +192,7 @@ class PackageCliTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(), source.read_bytes())
 
     def test_version_is_semver_like(self) -> None:
-        self.assertEqual(__version__, "0.1.3")
+        self.assertEqual(__version__, "0.1.4")
 
 
 if __name__ == "__main__":
