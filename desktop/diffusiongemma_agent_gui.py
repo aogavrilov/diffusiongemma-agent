@@ -50,7 +50,7 @@ def validate_task(repo_value: str, task_value: str, mode: str = "edit") -> tuple
     if mode == "edit":
         root = exact_git_root(repo)
         if root is None:
-            return None, "Code changes require a Git repository. Choose its root folder."
+            return None, "Code changes require a Git repository. Choose its exact Git root folder."
         if os.path.normcase(str(root)) != os.path.normcase(str(repo.resolve())):
             return None, f"Choose the exact Git root for code changes: {root}"
     return repo.resolve(), None
