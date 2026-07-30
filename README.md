@@ -203,8 +203,8 @@ This package is an engineering runtime, not the implementation artifact of the
 papers below. For problem-first research guides on adjacent evaluation and
 control questions, see:
 
-- [How to tell whether a compressed text generator fails in the codec or the generator](https://aogavrilov.com/projects/codec-bottleneck-diagnosis/)
-- [How can AI edit code without regenerating the entire program?](https://aogavrilov.com/projects/discrete-latent-generation/)
+- [How to tell whether a compressed text generator fails in the codec or the generator](https://aogavrilov.com/projects/codec-bottleneck-diagnosis/) · [Русский](https://aogavrilov.com/ru/projects/codec-bottleneck-diagnosis/) · [简体中文](https://aogavrilov.com/zh/projects/codec-bottleneck-diagnosis/)
+- [How can AI edit code without regenerating the entire program?](https://aogavrilov.com/projects/discrete-latent-generation/) · [Русский](https://aogavrilov.com/ru/projects/discrete-latent-generation/) · [简体中文](https://aogavrilov.com/zh/projects/discrete-latent-generation/)
 
 ## Source and reproducibility
 
