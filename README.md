@@ -197,6 +197,15 @@ Common fixes:
 Detailed diagnostics are in the
 [troubleshooting guide](https://github.com/aogavrilov/diffusiongemma-agent/blob/main/docs/TROUBLESHOOTING.md).
 
+## Research context
+
+This package is an engineering runtime, not the implementation artifact of the
+papers below. For problem-first research guides on adjacent evaluation and
+control questions, see:
+
+- [How to tell whether a compressed text generator fails in the codec or the generator](https://aogavrilov.com/projects/codec-bottleneck-diagnosis/)
+- [How can AI edit code without regenerating the entire program?](https://aogavrilov.com/projects/discrete-latent-generation/)
+
 ## Source and reproducibility
 
 - Agent, desktop app, installer, and packaging source:
